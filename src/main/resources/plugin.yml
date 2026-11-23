@@ -1,0 +1,36 @@
+name: FHMTitles
+version: '${version}'
+main: cn.fhm.titles.FHMTitlesPlugin
+api-version: '26.3'
+authors: [FHM]
+description: 称号系统 - 商店 / 仓库 / BUFF / 粒子 / RGB / 图片称号 / 前缀后缀
+website: https://mcfhm.cn
+softdepend:
+  - Vault
+  - PlayerPoints
+  - PlaceholderAPI
+  - LuckPerms
+
+libraries:
+  - org.xerial:sqlite-jdbc:3.54.1.0
+  - com.mysql:mysql-connector-j:26.10.0
+
+commands:
+  titles:
+    description: 称号系统主命令
+    usage: /titles help
+    aliases: [cht, titleshop, 称号]
+
+permissions:
+  fhmtitles.use:
+    description: 基础使用权限
+    default: true
+  fhmtitles.shop:
+    description: 打开称号商店
+    default: true
+  fhmtitles.equip:
+    description: 佩戴/切换称号
+    default: true
+  fhmtitles.admin:
+    description: 称号管理权限
+    default: op

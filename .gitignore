@@ -1,0 +1,15 @@
+# Gradle
+.gradle/
+build/
+out/
+bin/
+
+# IDEA
+.idea/
+*.iml
+
+# 运行时产物
+*.log
+hs_err_pid*.log
+plugins/
+resourcepack.zip

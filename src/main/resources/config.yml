@@ -1,0 +1,102 @@
+# FHMTitles 配置文件
+# 颜色与文本统一使用 MiniMessage: <red> / <#ff6600> / <gradient:#ff0000:#ffcc00>
+
+language: zh_CN
+
+storage:
+  # sqlite（本地文件，零依赖） / mysql（多服共享）
+  type: sqlite
+  mysql:
+    host: 127.0.0.1
+    port: 3306
+    database: fhm_titles
+    user: root
+    password: ""
+    table-prefix: "fhm_"
+  backup:
+    enabled: true
+    interval-minutes: 360
+    # 备份文件保留数量，超出自动删除最旧的
+    keep: 10
+
+display:
+  # %prefix% %suffix% %player% %message% 四个变量可在格式里任意使用
+  chat-format: "%prefix%<white>%player%</white>%suffix%<dark_gray> » </dark_gray><gray>%message%</gray>"
+  tab-format: "%prefix%<white>%player%</white>%suffix%"
+  head-format: "%prefix%"
+  tab-enabled: true
+  chat-enabled: true
+  head:
+    enabled: true
+    scale: 0.65
+    y-offset: 0.35
+    # 头顶称号可见距离（格），人多时靠这个降负载
+    view-distance: 32
+  # RGB 流光动画间隔（tick），越小越顺滑越吃性能
+  rgb-interval-ticks: 4
+  particle-interval-ticks: 10
+  default-palette:
+    - "#ff4b4b"
+    - "#ffc93c"
+    - "#4dd0e1"
+    - "#a26bff"
+
+economy:
+  # 内置称号币的名称，用于消息与商店
+  coin-name: "称号币"
+
+gui:
+  filler: BLACK_STAINED_GLASS_PANE
+  default-icon: NAME_TAG
+
+cards:
+  general:
+    material: PAPER
+  random:
+    material: FIREWORK_STAR
+
+shop:
+  # 玩家买过/拥有过的称号在商店里对该玩家隐藏
+  hide-purchased: true
+
+title:
+  expire-warning: true
+  expire-check-seconds: 30
+  actionbar-on-equip: true
+  # 获得称号的提示方式: CHAT / ACTIONBAR / TITLE / NONE
+  acquire-message-type: CHAT
+
+# 图片称号资源包
+# 插件会读取 plugins/FHMTitles/images/ 下的 PNG，自动打包成自定义字体资源包并托管下发。
+# 图片建议: PNG 带透明底、高度不超过 32px、内容上下不要留白；宽度会被均分给 count 个字形。
+resource-pack:
+  enabled: true
+  # 启动时自动重建资源包
+  build-on-start: true
+  # 玩家进服自动下发
+  send-on-join: true
+  # 强制要求加载（false 更安全：拒绝的玩家只会看到文字回退）
+  required: false
+  prompt: "<gold>服务器提供了称号资源包，用于显示图片称号</gold>"
+  # 内置 HTTP 服务的端口；填 0 关闭内置服务（此时请用 public-url 指向自己的 CDN/OSS）
+  port: 8123
+  # 客户端实际访问的资源包地址；留空则用 http://<服务器IP>:port/pack.zip
+  # 服务器在 NAT/面板后面时必须手填公网地址，例如 https://cdn.example.com/fhm/pack.zip
+  public-url: ""
+  # pack.mcmeta 版本区间（1.21.9+ 用 min_format/max_format，区间要覆盖你服务器的资源包格式号）
+  min-format: 65
+  max-format: 200
+  # 自定义字形起始码位（Unicode 私用区，默认 U+E000）
+  char-start: 57344
+  # 客户端没加载资源包时，图片部分替换成文字
+  fallback-text-enabled: true
+  fallback-text: "<gray>[图片称号]</gray>"
+
+# 称号数量奖励：拥有 N 个称号自动发放
+rewards:
+  - count: 3
+    type: TITLE
+    value: "novice"
+  - count: 5
+    type: COIN
+    amount: 200

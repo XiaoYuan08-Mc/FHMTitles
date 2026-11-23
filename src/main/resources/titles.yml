@@ -1,0 +1,153 @@
+# 称号定义
+# tags 决定出现在哪个商店分类: TEXT(前缀后缀) BUFF PARTICLE IMAGE RGB
+# days: -1 为永久，正数为限时天数
+# prices: type 支持 MONEY(Vault) / POINTS(PlayerPoints) / COIN(称号币) / ITEM(物品)
+# buffs: "效果名:等级"，等级 1 开始；particle: "粒子名" 或 "DUST:#ff8800:1.2"
+titles:
+  novice:
+    text: "<gray>[新手]</gray> "
+    suffix: ""
+    tags: [TEXT]
+    tier: COMMON
+    icon: WOODEN_SWORD
+    lore:
+      - "<gray>刚踏入繁花梦的第一枚徽章</gray>"
+    enabled: true
+    days: -1
+    weight: 30
+    prices: []
+    sort: 1
+
+  warrior:
+    text: "<gradient:#ff4b4b:#ffb703>[战神]</gradient> "
+    suffix: " <red>⚔</red>"
+    tags: [TEXT]
+    tier: EPIC
+    icon: NETHERITE_SWORD
+    model: 0
+    lore:
+      - "<gray>战场上的荣耀，限时 30 天</gray>"
+      - "<dark_gray>佩戴后获得速度加成</dark_gray>"
+    enabled: true
+    days: 30
+    weight: 15
+    buffs:
+      - "SPEED:1"
+    prices:
+      - type: MONEY
+        amount: 5000
+      - type: POINTS
+        amount: 300
+      - type: COIN
+        amount: 800
+    sort: 2
+
+  flame:
+    text: "<gold>[焰]</gold> "
+    tags: [PARTICLE]
+    tier: RARE
+    icon: BLAZE_POWDER
+    lore:
+      - "<gray>头顶常驻火焰粒子</gray>"
+    enabled: true
+    days: -1
+    weight: 20
+    particle: "FLAME"
+    particle-count: 10
+    prices:
+      - type: ITEM
+        item: BLAZE_ROD
+        item-amount: 16
+        amount: 16
+    sort: 3
+
+  rainbow:
+    text: "<gradient:#ff4b4b:#ffc93c:#4dd0e1:#a26bff>[流光]</gradient> "
+    tags: [RGB]
+    tier: LEGEND
+    icon: AMETHYST_CLUSTER
+    lore:
+      - "<gray>RGB 流光动画称号</gray>"
+    enabled: true
+    days: 90
+    weight: 5
+    animated: true
+    palette:
+      - "#ff4b4b"
+      - "#ffc93c"
+      - "#4dd0e1"
+      - "#a26bff"
+    prices:
+      - type: MONEY
+        amount: 20000
+      - type: COIN
+        amount: 3000
+    sort: 4
+
+  glyph:
+    text: ""
+    tags: [IMAGE]
+    tier: EPIC
+    icon: PAINTING
+    lore:
+      - "<gray>图片称号：整段文字渲染成 images/glyph.png 这张图</gray>"
+      - "<gray>未加载资源包的玩家会看到回退文字</gray>"
+    enabled: true
+    days: -1
+    weight: 10
+    image:
+      # 文件放在 plugins/FHMTitles/images/ 下
+      file: glyph.png
+      # 一张图切成几个字形（宽度必须能被整除）；1 表示整张图就是一个字形
+      glyphs: 1
+      # 字形像素高度：8 = 一行字的高度，徽章类建议 14~18
+      height: 16
+      # 向上偏移像素，让整块图坐在文字基线上（约等于 height - 2）
+      ascent: 14
+      # 客户端没加载资源包时显示的替代文本
+      fallback: "✦<light_purple>[绘]</light_purple>✦ "
+    prices:
+      - type: COIN
+        amount: 600
+    sort: 5
+
+  veteran:
+    text: "<aqua>[老兵]</aqua> "
+    tags: [BUFF]
+    tier: RARE
+    icon: BREWING_STAND
+    lore:
+      - "<gray>佩戴期间常驻生命恢复 I</gray>"
+    enabled: true
+    days: -1
+    weight: 15
+    buffs:
+      - "REGENERATION:1"
+      - "SATURATION:1"
+    prices:
+      - type: MONEY
+        amount: 8000
+    sort: 6
+
+  king:
+    text: "<gold>♛</gold><gradient:#ffd700:#fff8b0>[王]</gradient><gold>♛</gold> "
+    suffix: " <gold>王座之上</gold>"
+    tags: [TEXT, RGB]
+    tier: MYTHIC
+    icon: GOLDEN_HELMET
+    lore:
+      - "<gray>前缀与后缀同时展示的神话称号</gray>"
+    enabled: true
+    days: -1
+    weight: 1
+    animated: true
+    prices:
+      - type: MONEY
+        amount: 50000
+      - type: POINTS
+        amount: 2000
+      - type: ITEM
+        item: NETHER_STAR
+        item-amount: 3
+        amount: 3
+    sort: 7
