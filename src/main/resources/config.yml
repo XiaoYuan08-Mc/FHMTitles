@@ -6,6 +6,10 @@ language: zh_CN
 storage:
   # sqlite（本地文件，零依赖） / mysql（多服共享）
   type: sqlite
+  # 切换佩戴 / 显示开关这类高频改动的合并写盘间隔（秒）。0 = 每次改动立刻写。
+  # 发放、回收、购买、到期、领奖、下线、关服仍然立刻落盘，不受这个值影响。
+  # 这一项在 /titles reload 后不会热更，要重启。
+  flush-seconds: 5
   mysql:
     host: 127.0.0.1
     port: 3306
@@ -21,12 +25,16 @@ storage:
 
 display:
   # %prefix% %suffix% %player% %message% 四个变量可在格式里任意使用
+  # 图片称号还有 %prefix_text%（只要文字，不带图标），tab 默认用它
   chat-format: "%prefix%<white>%player%</white>%suffix%<dark_gray> » </dark_gray><gray>%message%</gray>"
   tab-format: "%prefix%<white>%player%</white>%suffix%"
   # 头顶格式：\n 是换行，默认称号在第一行、玩家名在第二行（称号在名字上面）
   head-format: '%prefix%\n<white>%player%</white>'
   tab-enabled: true
   chat-enabled: true
+  # tab 里要不要显示图片图标。默认 false：
+  # 图标是 16px 高，而 tab 一行只有 9px，塞进去会把玩家条目顶成两行（旁边还有人名、延迟条）
+  tab-image: false
   head:
     enabled: true
     scale: 0.65
@@ -36,6 +44,8 @@ display:
     view-distance: 32
   # RGB 流光动画间隔（tick），越小越顺滑越吃性能
   rgb-interval-ticks: 4
+  # 动画称号预渲染帧数：48 帧在 4 tick 间隔下看不出跳帧；调小省内存，调大更平滑
+  animation-frames: 48
   particle-interval-ticks: 10
   default-palette:
     - "#ff4b4b"
@@ -67,6 +77,9 @@ title:
   actionbar-on-equip: true
   # 获得称号的提示方式: CHAT / ACTIONBAR / TITLE / NONE
   acquire-message-type: CHAT
+  # 这些世界里称号 BUFF 不生效（换世界时会自动摘掉，回到普通世界再补上）
+  # 命中权限 fhmtitles.buff.bypass-world 的玩家不受限制
+  buff-disabled-worlds: []
 
 # 图片称号资源包
 # 插件会读取 plugins/FHMTitles/images/ 下的 PNG，自动打包成自定义字体资源包并托管下发。

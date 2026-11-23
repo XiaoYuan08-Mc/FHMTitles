@@ -8,6 +8,7 @@ import cn.fhm.titles.storage.DataStore;
 import cn.fhm.titles.util.TextUtil;
 import io.papermc.paper.event.player.AsyncChatEvent;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextReplacementConfig;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -40,17 +41,25 @@ public final class ChatListener implements Listener {
         if (!settings.chatEnabled) {
             return;
         }
-        PlayerData data = store.get(player);
-        if (!data.showChat) {
+        PlayerData data = store.peek(player.getUniqueId());
+        if (data != null && !data.showChat) {
             return;
         }
-        event.renderer((source, sourceDisplayName, message, viewer) -> {
-            Map<String, Component> tokens = new HashMap<>();
-            tokens.put("prefix", display.prefix(source));
-            tokens.put("suffix", display.suffix(source));
-            tokens.put("player", Component.text(source.getName()));
-            tokens.put("message", message);
-            return TextUtil.compose(settings.chatFormat, tokens);
-        });
+        // 聊天格式每 viewer 都会被渲染一次。以前每个 viewer 都重新解析一遍格式串，
+        // 现在每条消息只解析一次，把消息本体留成占位槽，按 viewer 替换。
+        Map<String, Component> tokens = new HashMap<>();
+        tokens.put("prefix", display.prefix(player));
+        tokens.put("suffix", display.suffix(player));
+        tokens.put("player", Component.text(player.getName()));
+        tokens.put("message", Component.text(TextUtil.SLOT));
+        Component template = TextUtil.compose(settings.chatFormat, tokens);
+        if (template.equals(Component.empty())) {
+            return;
+        }
+        event.renderer((source, sourceDisplayName, message, viewer) -> template.replaceText(
+                TextReplacementConfig.builder()
+                        .matchLiteral(TextUtil.SLOT)
+                        .replacement(message)
+                        .build()));
     }
 }

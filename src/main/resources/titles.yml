@@ -342,22 +342,24 @@ titles:
 
   # ---------------------------------------------------------------- 图片称号
   # 图片放在 plugins/FHMTitles/images/ 下；插件会把 jar 内置示例图自动释放到那里
+  # 图标是 16×16 的像素图，资源包里按 height=16 一比一渲染（不缩放，所以不会糊），
+  # 显示时是「图标 + 文字」拼在一起：聊天和头顶带图标，tab 只放文字（见 config 的 tab-image）
   glyph:
-    text: ""
+    text: "<gradient:#7fd8ff:#d8b4ff>绘梦</gradient>"
     tags: [IMAGE]
     tier: EPIC
     icon: PAINTING
     lore:
-      - "<gray>图片称号：整段文字渲染成 images/glyph.png 这张图</gray>"
+      - "<gray>图片称号：左侧一枚 16×16 的绘制图标，配渐变文字</gray>"
       - "<gray>未加载资源包的玩家会看到回退文字</gray>"
     enabled: true
     days: -1
     weight: 10
     image:
-      file: glyph.png
+      file: icon_glyph.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<light_purple>[绘]</light_purple>✦ "
     prices:
       - type: COIN
@@ -365,7 +367,7 @@ titles:
     sort: 5
 
   img_star:
-    text: ""
+    text: "<gradient:#ffd75e:#fff3b0>星辰</gradient>"
     tags: [IMAGE]
     tier: RARE
     icon: PAINTING
@@ -375,10 +377,10 @@ titles:
     days: -1
     weight: 12
     image:
-      file: badge_star.png
+      file: icon_star.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<aqua>[星辰]</aqua>✦ "
     prices:
       - type: COIN
@@ -388,7 +390,7 @@ titles:
     sort: 10
 
   img_flame:
-    text: ""
+    text: "<gradient:#ff8a3d:#ffd166>烈焰</gradient>"
     tags: [IMAGE]
     tier: EPIC
     icon: PAINTING
@@ -398,10 +400,10 @@ titles:
     days: -1
     weight: 9
     image:
-      file: badge_flame.png
+      file: icon_flame.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<red>[烈焰]</red>✦ "
     prices:
       - type: COIN
@@ -411,7 +413,7 @@ titles:
     sort: 11
 
   img_orchid:
-    text: ""
+    text: "<gradient:#a97cff:#ebddff>幽兰</gradient>"
     tags: [IMAGE]
     tier: RARE
     icon: PAINTING
@@ -421,10 +423,10 @@ titles:
     days: -1
     weight: 11
     image:
-      file: badge_orchid.png
+      file: icon_orchid.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<green>[幽兰]</green>✦ "
     prices:
       - type: COIN
@@ -434,7 +436,7 @@ titles:
     sort: 12
 
   img_aurora:
-    text: ""
+    text: "<gradient:#9a6bff:#5ce1e6>极光</gradient>"
     tags: [IMAGE]
     tier: LEGEND
     icon: PAINTING
@@ -444,10 +446,10 @@ titles:
     days: -1
     weight: 4
     image:
-      file: badge_aurora.png
+      file: icon_aurora.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<light_purple>[极光]</light_purple>✦ "
     prices:
       - type: MONEY
@@ -457,7 +459,7 @@ titles:
     sort: 13
 
   img_flower:
-    text: ""
+    text: "<gradient:#ff8fbf:#ffd6e6>花语</gradient>"
     tags: [IMAGE]
     tier: EPIC
     icon: PAINTING
@@ -467,10 +469,10 @@ titles:
     days: -1
     weight: 8
     image:
-      file: badge_flower.png
+      file: icon_flower.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<color:#ff92c2>[花语]</color>✦ "
     prices:
       - type: COIN
@@ -480,7 +482,7 @@ titles:
     sort: 14
 
   img_thunder:
-    text: ""
+    text: "<gradient:#ffe066:#fff9c4>雷帝</gradient>"
     tags: [IMAGE]
     tier: LEGEND
     icon: PAINTING
@@ -490,10 +492,10 @@ titles:
     days: -1
     weight: 3
     image:
-      file: badge_thunder.png
+      file: icon_thunder.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<light_purple>[雷帝]</light_purple>✦ "
     prices:
       - type: MONEY
@@ -503,7 +505,7 @@ titles:
     sort: 15
 
   img_supreme:
-    text: ""
+    text: "<gradient:#ffcc33:#fff6cc>至尊</gradient>"
     tags: [IMAGE]
     tier: MYTHIC
     icon: PAINTING
@@ -513,10 +515,10 @@ titles:
     days: -1
     weight: 1
     image:
-      file: badge_supreme.png
+      file: icon_crown.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<gold>[至尊]</gold>✦ "
     prices:
       - type: MONEY
@@ -526,7 +528,7 @@ titles:
     sort: 16
 
   img_night:
-    text: ""
+    text: "<gradient:#9fb0ff:#e4eaff>夜阑</gradient>"
     tags: [IMAGE]
     tier: RARE
     icon: PAINTING
@@ -536,10 +538,10 @@ titles:
     days: -1
     weight: 10
     image:
-      file: badge_night.png
+      file: icon_moon.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<blue>[夜莺]</blue>✦ "
     prices:
       - type: COIN
@@ -547,7 +549,7 @@ titles:
     sort: 17
 
   img_bounty:
-    text: ""
+    text: "<gradient:#ffc23d:#ffe07a>悬赏</gradient>"
     tags: [IMAGE]
     tier: EPIC
     icon: PAINTING
@@ -557,10 +559,10 @@ titles:
     days: -1
     weight: 7
     image:
-      file: badge_bounty.png
+      file: icon_bounty.png
       glyphs: 1
       height: 16
-      ascent: 14
+      ascent: 13
       fallback: "✦<green>[丰饶]</green>✦ "
     prices:
       - type: COIN

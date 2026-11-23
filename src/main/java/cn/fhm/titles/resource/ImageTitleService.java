@@ -66,10 +66,10 @@ public final class ImageTitleService {
 
     /** jar 内置示例图（非 jar 部署时的兜底清单）。 */
     private static final String[] BUNDLED_IMAGES = {
-            "glyph.png",
-            "badge_star.png", "badge_flame.png", "badge_orchid.png", "badge_aurora.png",
-            "badge_flower.png", "badge_thunder.png", "badge_supreme.png", "badge_night.png",
-            "badge_bounty.png"
+            "icon_glyph.png",
+            "icon_star.png", "icon_flame.png", "icon_orchid.png", "icon_aurora.png",
+            "icon_flower.png", "icon_thunder.png", "icon_crown.png", "icon_moon.png",
+            "icon_bounty.png"
     };
     /** 资源包固定 UUID：用来区分客户端返回的状态到底属于哪个插件的包。 */
     public static final UUID PACK_ID = UUID.nameUUIDFromBytes("FHMTitles:resourcepack".getBytes(StandardCharsets.UTF_8));

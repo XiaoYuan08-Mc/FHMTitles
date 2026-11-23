@@ -44,7 +44,9 @@ public final class InputManager {
         }
         String text = PlainTextComponentSerializer.plainText().serialize(message);
         if (text.equalsIgnoreCase("cancel") || text.equalsIgnoreCase("取消")) {
-            player.sendMessage(Component.text("已取消输入"));
+            // 这里跑在 AsyncChatEvent 线程上，发包/发消息必须回主线程
+            plugin.getServer().getScheduler().runTask(plugin,
+                    () -> player.sendMessage(Component.text("已取消输入")));
             return true;
         }
         plugin.getServer().getScheduler().runTask(plugin, () -> consumer.accept(text));

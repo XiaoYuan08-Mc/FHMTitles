@@ -116,12 +116,14 @@ public final class RewardService {
     private void doCheck(Player player) {
         PlayerData data = store.get(player);
         int owned = ownedCount(data);
+        boolean changed = false;
         for (Reward reward : rewards) {
             String key = "count_" + reward.count();
             if (owned < reward.count() || data.claimed.contains(key)) {
                 continue;
             }
             data.claimed.add(key);
+            changed = true;
             store.markDirty(player.getUniqueId());
             if (reward.type() == RewardType.TITLE) {
                 Title title = registry.get(reward.value());
@@ -134,6 +136,10 @@ public final class RewardService {
             }
             Component message = lang.msg("reward.unlocked", "count", String.valueOf(reward.count()));
             player.sendMessage(lang.prefix().append(message));
+        }
+        if (changed) {
+            // 领取标记不能等合并写盘：崩服回滚会让玩家重复领同一档奖励
+            store.save(player.getUniqueId());
         }
     }
 

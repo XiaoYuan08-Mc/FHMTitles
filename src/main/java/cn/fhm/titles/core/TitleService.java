@@ -153,7 +153,8 @@ public final class TitleService {
         return true;
     }
 
-    /** 获取提示支持 CHAT / ACTIONBAR / TITLE 三种展示方式。 */    private void notifyAcquire(Player player, Title title, int days) {
+    /** 获取提示支持 CHAT / ACTIONBAR / TITLE 三种展示方式。 */
+    private void notifyAcquire(Player player, Title title, int days) {
         Map<String, Component> rich = new HashMap<>();
         rich.put("title", display.titleComponent(title, player));
         Component message = days < 0
@@ -191,7 +192,9 @@ public final class TitleService {
     public void addCoins(Player player, long amount) {
         PlayerData data = store.get(player);
         data.coins = Math.max(0, data.coins + amount);
+        // 称号币属于经济数据，丢一秒都可能让玩家对不上账，不能只标脏
         store.markDirty(player.getUniqueId());
+        store.save(player.getUniqueId());
     }
 
     public void onJoin(Player player) {
@@ -209,9 +212,24 @@ public final class TitleService {
     }
 
     public void onQuit(Player player) {
-        store.save(player.getUniqueId());
+        // 下线必须立刻落盘，不能等合并写盘那一轮
+        store.flushPlayer(player.getUniqueId());
         display.onQuit(player);
         buff.forget(player);
+    }
+
+    /**
+     * 重生 / 换世界后重新对齐 BUFF 与显示。
+     * 先按当前佩戴的称号把本插件加的效果摘干净，再按新世界策略决定要不要补回来。
+     */
+    public void resync(Player player) {
+        PlayerData data = store.get(player);
+        Title title = display.equippedTitle(data);
+        buff.clear(player, title);
+        display.refresh(player);
+        if (title != null) {
+            buff.apply(player, title);
+        }
     }
 
     /** 到期检查：每 expireCheckSeconds 执行一次。 */
@@ -276,7 +294,7 @@ public final class TitleService {
             if (wasEquipped) {
                 Player online = Bukkit.getPlayer(data.uuid);
                 if (online != null) {
-                    buff.clearTypes(online, buff.parseEffects(removed));
+                    buff.clear(online, removed);
                     display.refresh(online);
                 }
             }
@@ -290,6 +308,15 @@ public final class TitleService {
 
     public void reloadAll() {
         registry.load();
+        refreshPlayers();
+        display.refreshAll();
+    }
+
+    /**
+     * 称号定义的可展示 / 可用状态变化后，重新对齐所有在线玩家：
+     * 先按「当前还能不能佩戴」摘掉本插件的 BUFF，再刷新三处显示并补回。
+     */
+    public void refreshPlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             PlayerData data = store.get(player);
             Title title = display.equippedTitle(data);
@@ -299,6 +326,5 @@ public final class TitleService {
                 buff.ensure(player, data);
             }
         }
-        display.refreshAll();
     }
 }

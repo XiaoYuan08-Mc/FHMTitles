@@ -23,6 +23,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitTask;
 
 import java.sql.SQLException;
 
@@ -43,6 +44,11 @@ public final class FHMTitlesPlugin extends JavaPlugin {
     private InputManager input;
     private PapiHook papi;
     private cn.fhm.titles.resource.ImageTitleService images;
+    private BukkitTask expireTask;
+    private BukkitTask animationTask;
+    private BukkitTask particleTask;
+    private BukkitTask backupTask;
+    private BukkitTask flushTask;
 
     public Settings settings() {
         return settings;
@@ -107,20 +113,25 @@ public final class FHMTitlesPlugin extends JavaPlugin {
             database.init();
         } catch (Exception e) {
             getLogger().severe("数据库初始化失败: " + e.getMessage());
+            database.close();
             getServer().getPluginManager().disablePlugin(this);
             return;
         }
-        store = new DataStore(database);
+        store = new DataStore(database, settings.flushSeconds);
         try {
             store.loadAll();
         } catch (SQLException e) {
-            getLogger().severe("读取玩家数据失败: " + e.getMessage());
+            // 读档失败时继续跑会在玩家进服后用空数据覆盖原存档，宁可先停用
+            getLogger().severe("读取玩家数据失败，已停用插件以避免覆盖存档: " + e.getMessage());
+            database.close();
+            getServer().getPluginManager().disablePlugin(this);
+            return;
         }
 
         display = new DisplayService(this, settings, lang, registry, store);
         images = new cn.fhm.titles.resource.ImageTitleService(this, settings, registry);
         display.setImages(images);
-        buff = new BuffService(registry);
+        buff = new BuffService(registry, settings);
         particles = new ParticleService(registry, store);
         titles = new TitleService(this, settings, lang, registry, store, display, buff);
         shop = new ShopService(this, settings, lang, store, titles);
@@ -137,20 +148,17 @@ public final class FHMTitlesPlugin extends JavaPlugin {
             command.setTabCompleter(executor);
         }
 
-        getServer().getPluginManager().registerEvents(new PlayerListener(this, titles, display, buff), this);
+        getServer().getPluginManager().registerEvents(new PlayerListener(this, titles, display, input), this);
         getServer().getPluginManager().registerEvents(new GuiListener(gui), this);
         getServer().getPluginManager().registerEvents(new ChatListener(settings, display, store, input), this);
         getServer().getPluginManager().registerEvents(new CardListener(cards), this);
         getServer().getPluginManager().registerEvents(new cn.fhm.titles.listener.ResourcePackListener(this), this);
 
-        long expireTicks = settings.expireCheckSeconds * 20L;
-        Bukkit.getScheduler().runTaskTimer(this, titles::tickExpiry, expireTicks, expireTicks);
-        Bukkit.getScheduler().runTaskTimer(this, display::tickAnimation, 1L, settings.rgbIntervalTicks);
-        Bukkit.getScheduler().runTaskTimer(this, particles::tick, 1L, settings.particleIntervalTicks);
-        if (settings.backupEnabled) {
-            Bukkit.getScheduler().runTaskTimer(this, () -> database.backupAsync(),
-                    20L * 60L, 20L * 60L * settings.backupIntervalMinutes);
-        }
+        // flush-seconds = 0 时 markDirty 会逐次立即写；这里仍留 1 秒兜底，
+        // 只处理写失败被回填成脏的行，平时 dirty 为空，检查成本可以忽略
+        long flushTicks = Math.max(1, settings.flushSeconds) * 20L;
+        flushTask = Bukkit.getScheduler().runTaskTimer(this, store::flushDirty, flushTicks, flushTicks);
+        schedulePeriodicTasks();
 
         registerPlaceholders();
 
@@ -191,6 +199,36 @@ public final class FHMTitlesPlugin extends JavaPlugin {
             getLogger().warning("重建资源包失败: " + t.getMessage());
         }
         display.refreshAll();
+        // 周期任务在创建时就把间隔写死了，reload 改了间隔要重建任务才生效
+        schedulePeriodicTasks();
+    }
+
+    /** 到期检查 / RGB 动画 / 粒子 / 备份的周期任务；reload 改间隔后重建。 */
+    private void schedulePeriodicTasks() {
+        if (expireTask != null) {
+            expireTask.cancel();
+        }
+        if (animationTask != null) {
+            animationTask.cancel();
+        }
+        if (particleTask != null) {
+            particleTask.cancel();
+        }
+        if (backupTask != null) {
+            backupTask.cancel();
+            backupTask = null;
+        }
+        long expireTicks = settings.expireCheckSeconds * 20L;
+        expireTask = Bukkit.getScheduler().runTaskTimer(this, titles::tickExpiry, expireTicks, expireTicks);
+        animationTask = Bukkit.getScheduler().runTaskTimer(this, display::tickAnimation, 1L, settings.rgbIntervalTicks);
+        particleTask = Bukkit.getScheduler().runTaskTimer(this, particles::tick, 1L, settings.particleIntervalTicks);
+        if (settings.backupEnabled) {
+            backupTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
+                // 先把脏行刷进库，再备份；两者都在同一个 DB 执行器上按顺序执行
+                store.flushDirty();
+                database.backupAsync();
+            }, 20L * 60L, 20L * 60L * settings.backupIntervalMinutes);
+        }
     }
 
     @Override
@@ -203,7 +241,11 @@ public final class FHMTitlesPlugin extends JavaPlugin {
             display.clearAll();
         }
         if (store != null) {
-            // 关服路径必须同步写完：以前只往队列里塞，数据库 close 等不到队尾就丢了
+            // 先让 DB 队列跑完，再同步写最后一批脏数据，最后才关连接：
+            // 反过来写的话，队列里更旧的快照会在关服瞬间覆盖掉刚写的这一版
+            if (database != null) {
+                database.shutdown();
+            }
             store.saveDirtySync();
         }
         if (database != null) {

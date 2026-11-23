@@ -1,16 +1,17 @@
 package cn.fhm.titles.core;
 
+import cn.fhm.titles.config.Settings;
 import cn.fhm.titles.model.PlayerData;
+import cn.fhm.titles.model.PotionBuff;
 import cn.fhm.titles.model.Title;
 import cn.fhm.titles.model.TitleRegistry;
 import org.bukkit.entity.Player;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.Locale;
+import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
@@ -19,142 +20,130 @@ import java.util.concurrent.ConcurrentHashMap;
 /**
  * 称号 BUFF：佩戴期间维持无限时长药水效果，摘下 / 切换 / 到期 / 删定义时只移除本插件加上的那一层，
  * 不会连带删掉玩家自己喝的同类型药水。
+ *
+ * 1.2.0 的两处改动：
+ * 1. BUFF 词条在称号载入时已经编译成 PotionBuff，热路径不再 split 字符串；
+ * 2. 进服清残留用的「全库 BUFF → 等级」索引只在称号库变更时重建，而不是每个玩家进服扫一遍全库。
  */
 public final class BuffService {
 
     /** 无限时长；用字面值避免不同版本 API 常量名不一致。 */
     private static final int INFINITE = -1;
+    private static final String BYPASS_WORLD_PERMISSION = "fhmtitles.buff.bypass-world";
 
     private final TitleRegistry registry;
+    private final Settings settings;
 
     /** 玩家 -> (效果类型 -> 本插件加上的等级)，用来判断"这层效果是不是我们加的"。 */
     private final Map<UUID, Map<PotionEffectType, Integer>> applied = new ConcurrentHashMap<>();
 
-    public BuffService(TitleRegistry registry) {
+    private volatile int indexVersion = -1;
+    private volatile Map<PotionEffectType, Set<Integer>> titleBuffIndex = Map.of();
+
+    public BuffService(TitleRegistry registry, Settings settings) {
         this.registry = registry;
+        this.settings = settings;
     }
 
-    private record Parsed(PotionEffectType type, int amplifier) {
-    }
-
-    private Parsed parse(String raw) {
-        if (raw == null || raw.isBlank()) {
-            return null;
+    /** 该世界里是否允许挂称号 BUFF。 */
+    public boolean worldAllowed(Player player) {
+        if (player == null) {
+            return false;
         }
-        String[] parts = raw.split(":");
-        String name = parts[0].trim();
-        int level = 1;
-        if (parts.length > 1) {
-            try {
-                level = Math.max(1, Integer.parseInt(parts[1].trim()));
-            } catch (NumberFormatException ignored) {
-                level = 1;
-            }
+        List<String> disabled = settings == null ? null : settings.buffDisabledWorlds;
+        if (disabled == null || disabled.isEmpty()) {
+            return true;
         }
-        PotionEffectType type = resolve(name);
-        if (type == null) {
-            return null;
+        if (!disabled.contains(player.getWorld().getName())) {
+            return true;
         }
-        return new Parsed(type, Math.min(30, level - 1));
-    }
-
-    @SuppressWarnings("deprecation")
-    private PotionEffectType resolve(String name) {
-        PotionEffectType type = PotionEffectType.getByName(name.toUpperCase(Locale.ROOT));
-        if (type == null) {
-            type = PotionEffectType.getByName(name.toLowerCase(Locale.ROOT));
-        }
-        return type;
-    }
-
-    public Set<PotionEffectType> parseEffects(Title title) {
-        Set<PotionEffectType> out = new HashSet<>();
-        if (title == null || title.buffs == null) {
-            return out;
-        }
-        for (String raw : title.buffs) {
-            Parsed parsed = parse(raw);
-            if (parsed != null) {
-                out.add(parsed.type());
-            }
-        }
-        return out;
+        return player.hasPermission(BYPASS_WORLD_PERMISSION);
     }
 
     public void apply(Player player, Title title) {
-        if (player == null || title == null || title.buffs == null) {
+        if (player == null || title == null || title.potionBuffs.isEmpty()) {
+            return;
+        }
+        if (!worldAllowed(player)) {
             return;
         }
         Map<PotionEffectType, Integer> own = applied.computeIfAbsent(player.getUniqueId(), key -> new HashMap<>());
-        for (String raw : title.buffs) {
-            Parsed parsed = parse(raw);
-            if (parsed == null) {
-                continue;
-            }
-            player.addPotionEffect(new PotionEffect(parsed.type(), INFINITE, parsed.amplifier(), true, false, false));
-            own.put(parsed.type(), parsed.amplifier());
+        for (PotionBuff buff : title.potionBuffs) {
+            player.addPotionEffect(new PotionEffect(buff.type(), INFINITE, buff.amplifier(), true, false, false));
+            own.put(buff.type(), buff.amplifier());
         }
     }
 
     /** 摘下 / 切换称号时移除旧称号加上的效果。 */
     public void clear(Player player, Title previous) {
-        if (previous == null) {
+        if (player == null) {
             return;
         }
-        clearTypes(player, parseEffects(previous));
-    }
-
-    /** 称号定义被删除时拿不到 Title 对象，按类型清理。 */
-    public void clearTypes(Player player, Collection<PotionEffectType> types) {
-        if (player == null || types == null || types.isEmpty()) {
+        UUID uuid = player.getUniqueId();
+        Map<PotionEffectType, Integer> own = applied.get(uuid);
+        if ((previous == null || previous.potionBuffs.isEmpty()) && (own == null || own.isEmpty())) {
             return;
         }
-        Map<PotionEffectType, Integer> own = applied.get(player.getUniqueId());
+        // 旧称号声明过的类型 + 本插件记录过的类型，两边都清一遍；
+        // 只清「无限时长且等级对得上」的那一层，玩家自己喝的同类型药水不动
+        Set<PotionEffectType> types = new java.util.LinkedHashSet<>();
+        if (previous != null) {
+            for (PotionBuff buff : previous.potionBuffs) {
+                types.add(buff.type());
+            }
+        }
+        if (own != null) {
+            types.addAll(own.keySet());
+        }
         for (PotionEffectType type : types) {
             PotionEffect current = player.getPotionEffect(type);
-            Integer amplifier = own == null ? null : own.remove(type);
-            if (current == null) {
-                continue;
-            }
-            // 只有"无限时长"或"等级与本插件记录一致"的效果才认定是我们加的
-            boolean ours = current.getDuration() == INFINITE
-                    || (amplifier != null && current.getAmplifier() == amplifier);
+            Integer recorded = own == null ? null : own.get(type);
+            int expected = expectedAmplifier(previous, type, recorded);
+            boolean ours = current != null && current.getDuration() == INFINITE
+                    && (recorded != null ? current.getAmplifier() == recorded
+                    : expected != Integer.MIN_VALUE && current.getAmplifier() == expected);
             if (ours) {
                 player.removePotionEffect(type);
             }
+            if (own != null) {
+                own.remove(type);
+            }
         }
         if (own != null && own.isEmpty()) {
-            applied.remove(player.getUniqueId());
+            applied.remove(uuid);
         }
     }
 
+    private int expectedAmplifier(Title title, PotionEffectType type, Integer recorded) {
+        if (recorded != null) {
+            return recorded;
+        }
+        if (title == null) {
+            return Integer.MIN_VALUE;
+        }
+        for (PotionBuff buff : title.potionBuffs) {
+            if (buff.type().equals(type)) {
+                return buff.amplifier();
+            }
+        }
+        return Integer.MIN_VALUE;
+    }
+
     /**
-     * 进服 / 重载时清理残留：把所有称号可能加过的效果里，不属于当前佩戴称号的那些去掉，
-     * 避免换了称号或删了定义后旧 BUFF 一直挂着。
-     *
-     * 判定收紧到"无限时长 + 等级与该词条声明的等级一致"，玩家自己喝的同类型药水、
-     * 其它插件给的永久 buff 不会被顺手删掉。
+     * 进服 / 重载时清理残留：把所有称号可能加过的效果里，不属于当前佩戴称号的那些去掉。
+     * 判定收紧到"无限时长 + 等级与某个称号声明的等级一致"，玩家自己喝的同类型药水不会被动。
      */
     public void stripStale(Player player, Title equipped) {
         if (player == null) {
             return;
         }
-        Set<PotionEffectType> keep = parseEffects(equipped);
-        Map<PotionEffectType, Set<Integer>> candidates = new HashMap<>();
-        if (registry != null) {
-            for (Title title : registry.all()) {
-                if (title == equipped || title.buffs == null) {
-                    continue;
-                }
-                for (String raw : title.buffs) {
-                    Parsed parsed = parse(raw);
-                    if (parsed != null && !keep.contains(parsed.type())) {
-                        candidates.computeIfAbsent(parsed.type(), key -> new HashSet<>()).add(parsed.amplifier());
-                    }
-                }
+        Set<PotionEffectType> keep = equipped == null ? Set.of() : typesOf(equipped);
+        UUID uuid = player.getUniqueId();
+        Map<PotionEffectType, Integer> own = applied.get(uuid);
+        for (Map.Entry<PotionEffectType, Set<Integer>> entry : index().entrySet()) {
+            if (keep.contains(entry.getKey())) {
+                continue;
             }
-        }
-        for (Map.Entry<PotionEffectType, Set<Integer>> entry : candidates.entrySet()) {
             PotionEffect current = player.getPotionEffect(entry.getKey());
             if (current == null || current.getDuration() != INFINITE) {
                 continue;
@@ -163,30 +152,38 @@ public final class BuffService {
                 continue;
             }
             player.removePotionEffect(entry.getKey());
+            // 效果已经被摘掉，账本也要同步，避免以后误把玩家自己的同类型无限效果当成我们的
+            if (own != null) {
+                own.remove(entry.getKey());
+            }
+        }
+        if (own != null && own.isEmpty()) {
+            applied.remove(uuid);
         }
     }
 
     /** 佩戴称号后防止被其他效果覆盖，定期补一次。 */
     public void ensure(Player player, PlayerData data) {
-        if (data.equipped == null || data.equipped.isEmpty()) {
+        if (player == null || data == null || data.equipped == null || data.equipped.isEmpty()) {
             return;
         }
         Title title = registry.get(data.equipped);
-        if (title == null || title.buffs == null) {
+        if (title == null || title.potionBuffs.isEmpty()) {
+            return;
+        }
+        if (!worldAllowed(player)) {
+            // 走进禁用世界后，本插件之前挂上的那一层要摘掉，不然会跟着玩家一直生效
+            clear(player, title);
             return;
         }
         Map<PotionEffectType, Integer> own = applied.computeIfAbsent(player.getUniqueId(), key -> new HashMap<>());
-        for (String raw : title.buffs) {
-            Parsed parsed = parse(raw);
-            if (parsed == null) {
-                continue;
-            }
-            PotionEffect current = player.getPotionEffect(parsed.type());
+        for (PotionBuff buff : title.potionBuffs) {
+            PotionEffect current = player.getPotionEffect(buff.type());
             if (current == null || (current.getDuration() != INFINITE && current.getDuration() < 20)
-                    || current.getAmplifier() != parsed.amplifier()) {
-                player.addPotionEffect(new PotionEffect(parsed.type(), INFINITE, parsed.amplifier(), true, false, false));
+                    || current.getAmplifier() != buff.amplifier()) {
+                player.addPotionEffect(new PotionEffect(buff.type(), INFINITE, buff.amplifier(), true, false, false));
             }
-            own.put(parsed.type(), parsed.amplifier());
+            own.put(buff.type(), buff.amplifier());
         }
     }
 
@@ -194,5 +191,42 @@ public final class BuffService {
         if (player != null) {
             applied.remove(player.getUniqueId());
         }
+    }
+
+    private Set<PotionEffectType> typesOf(Title title) {
+        if (title.potionBuffs.isEmpty()) {
+            return Set.of();
+        }
+        Set<PotionEffectType> out = new HashSet<>(title.potionBuffs.size());
+        for (PotionBuff buff : title.potionBuffs) {
+            out.add(buff.type());
+        }
+        return out;
+    }
+
+    /**
+     * 全库「BUFF 类型 -> 可能出现的等级」索引。
+     * 以前每次进服都要遍历所有称号、再解析所有 BUFF 字符串；现在只在称号库版本变化时重建。
+     */
+    private Map<PotionEffectType, Set<Integer>> index() {
+        int version = registry == null ? 0 : registry.version();
+        if (version == indexVersion) {
+            return titleBuffIndex;
+        }
+        Map<PotionEffectType, Set<Integer>> index = new HashMap<>();
+        if (registry != null) {
+            for (Title title : registry.all()) {
+                for (PotionBuff buff : title.potionBuffs) {
+                    index.computeIfAbsent(buff.type(), key -> new HashSet<>()).add(buff.amplifier());
+                }
+            }
+        }
+        Map<PotionEffectType, Set<Integer>> frozen = new HashMap<>(index.size());
+        for (Map.Entry<PotionEffectType, Set<Integer>> entry : index.entrySet()) {
+            frozen.put(entry.getKey(), Set.copyOf(entry.getValue()));
+        }
+        titleBuffIndex = Map.copyOf(frozen);
+        indexVersion = version;
+        return titleBuffIndex;
     }
 }

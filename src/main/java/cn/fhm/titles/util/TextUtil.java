@@ -16,6 +16,9 @@ import java.util.Map;
  */
 public final class TextUtil {
 
+    /** 组件插槽占位符：先把格式串解析成带槽的模板，之后每帧只替换槽，避免重复解析整条格式。 */
+    public static final String SLOT = "\u0001";
+
     private static final MiniMessage MM = MiniMessage.miniMessage();
 
     private TextUtil() {
@@ -77,15 +80,26 @@ public final class TextUtil {
      * 逐字染色，用于 RGB 流光称号。text 为纯文本（可含 MiniMessage 以外的普通字符）。
      */
     public static String animatedGradient(String text, List<String> palette, double phase) {
-        if (text == null || text.isEmpty()) {
-            return "";
-        }
         if (palette == null || palette.size() < 2) {
-            return escape(text);
+            return text == null ? "" : escape(text);
         }
         int[] colors = new int[palette.size()];
         for (int i = 0; i < palette.size(); i++) {
             colors[i] = parseHex(palette.get(i));
+        }
+        return animatedGradient(text, colors, phase);
+    }
+
+    /**
+     * 调色板已经解析成 int 的版本。
+     * 动画帧在载入期就要生成几十份，别每一帧再把 "#ff4b4b" 解析一遍。
+     */
+    public static String animatedGradient(String text, int[] colors, double phase) {
+        if (text == null || text.isEmpty()) {
+            return "";
+        }
+        if (colors == null || colors.length < 2) {
+            return escape(text);
         }
         StringBuilder out = new StringBuilder(text.length() * 14);
         int len = text.length();

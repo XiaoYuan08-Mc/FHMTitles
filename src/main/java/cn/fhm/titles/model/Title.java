@@ -1,5 +1,6 @@
 package cn.fhm.titles.model;
 
+import cn.fhm.titles.util.TextUtil;
 import org.bukkit.Material;
 import org.bukkit.configuration.ConfigurationSection;
 
@@ -38,8 +39,28 @@ public final class Title {
     public String imageFallback = "";
     public int sort = 0;
 
+    /*
+     * 以下是载入期算好的运行时数据，不写进 titles.yml。
+     * BUFF 词条和粒子参数在热路径上会被反复用到（补 BUFF、粒子周期、动画帧），
+     * 与其每次重新 split 字符串，不如在载入时解析一次。
+     */
+    public transient List<PotionBuff> potionBuffs = List.of();
+    public transient ParticleSpec particleSpec;
+    public transient int[] paletteRgb = new int[0];
+
     public Title(String id) {
         this.id = id;
+    }
+
+    /** titles.yml 载入 / 后台新增称号后调用；只依赖当前字段，可重复调用。 */
+    public void compile() {
+        potionBuffs = PotionBuff.parseAll(buffs);
+        particleSpec = ParticleSpec.parse(particle, particleCount);
+        int[] rgb = new int[palette.size()];
+        for (int i = 0; i < palette.size(); i++) {
+            rgb[i] = TextUtil.parseHex(palette.get(i));
+        }
+        paletteRgb = rgb;
     }
 
     public boolean hasTag(Category category) {
@@ -118,6 +139,7 @@ public final class Title {
             }
             title.prices.add(entry);
         }
+        title.compile();
         return title;
     }
 

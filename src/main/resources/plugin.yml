@@ -31,6 +31,9 @@ permissions:
   fhmtitles.equip:
     description: 佩戴/切换称号
     default: true
+  fhmtitles.buff.bypass-world:
+    description: 无视 title.buff-disabled-worlds 的世界禁用
+    default: false
   fhmtitles.admin:
     description: 称号管理权限
     default: op

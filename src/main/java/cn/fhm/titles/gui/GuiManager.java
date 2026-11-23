@@ -647,7 +647,8 @@ public final class GuiManager {
                 }
                 title.enabled = !title.enabled;
                 registry.save();
-                titles.display().refreshAll();
+                // 禁用后不能再让佩戴者继续显示/吃 BUFF；启用后也要补回来
+                titles.refreshPlayers();
                 openAdmin(player, 0);
                 player.sendMessage(lang.prefix().append(lang.msg("admin.updated", "id", title.id)));
             }
