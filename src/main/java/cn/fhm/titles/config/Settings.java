@@ -118,7 +118,8 @@ public final class Settings {
         packSendOnJoin = c.getBoolean("resource-pack.send-on-join", true);
         packRequired = c.getBoolean("resource-pack.required", false);
         packPrompt = c.getString("resource-pack.prompt", packPrompt);
-        packPort = c.getInt("resource-pack.port", 8123);
+        // 8124：家具插件默认占 8123，两个都装时别再抢同一个端口
+        packPort = c.getInt("resource-pack.port", 8124);
         packPublicUrl = c.getString("resource-pack.public-url", "");
         packMinFormat = c.getInt("resource-pack.min-format", 65);
         packMaxFormat = c.getInt("resource-pack.max-format", 200);

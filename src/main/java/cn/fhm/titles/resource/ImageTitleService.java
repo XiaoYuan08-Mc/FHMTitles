@@ -23,7 +23,10 @@ import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.net.Inet4Address;
+import java.net.InetAddress;
 import java.net.InetSocketAddress;
+import java.net.NetworkInterface;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -37,6 +40,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.jar.JarEntry;
 import java.util.jar.JarFile;
@@ -89,6 +93,8 @@ public final class ImageTitleService {
     private volatile long builtAt = 0L;
     private volatile int boundPort = 0;
     private HttpServer http;
+    /** HttpServer 自己不会关外部传入的线程池，必须自己留着引用，否则每次 reload 漏 2 条线程 */
+    private ExecutorService httpExecutor;
 
     public ImageTitleService(JavaPlugin plugin, Settings settings, TitleRegistry registry) {
         this.plugin = plugin;
@@ -135,6 +141,10 @@ public final class ImageTitleService {
         if (http != null) {
             http.stop(0);
             http = null;
+        }
+        if (httpExecutor != null) {
+            httpExecutor.shutdownNow();
+            httpExecutor = null;
         }
         boundPort = 0;
     }
@@ -406,9 +416,29 @@ public final class ImageTitleService {
         }
         String host = Bukkit.getIp();
         if (host == null || host.isBlank() || "0.0.0.0".equals(host)) {
-            host = "127.0.0.1";
+            // 以前兜底写死 127.0.0.1，外网玩家拿到这个地址根本下不动包
+            host = localAddress();
         }
         return "http://" + host + ":" + port + "/pack.zip";
+    }
+
+    /** 本机内网 IPv4，用于自动拼资源包地址；拿不到就回环。 */
+    private static String localAddress() {
+        try {
+            for (NetworkInterface nif : java.util.Collections.list(NetworkInterface.getNetworkInterfaces())) {
+                if (!nif.isUp() || nif.isLoopback() || nif.isVirtual()) {
+                    continue;
+                }
+                for (InetAddress address : java.util.Collections.list(nif.getInetAddresses())) {
+                    if (address instanceof Inet4Address && address.isSiteLocalAddress()) {
+                        return address.getHostAddress();
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+            // 拿不到网卡信息就用回环
+        }
+        return "127.0.0.1";
     }
 
     /**
@@ -433,13 +463,16 @@ public final class ImageTitleService {
                         out.write(body);
                     }
                 });
-                server.setExecutor(Executors.newFixedThreadPool(2, runnable -> {
+                ExecutorService pool = Executors.newFixedThreadPool(2, runnable -> {
                     Thread thread = new Thread(runnable, "FHMTitles-Pack-HTTP");
                     thread.setDaemon(true);
                     return thread;
-                }));
+                });
+                server.setExecutor(pool);
                 server.start();
                 this.http = server;
+                // 启动成功后才记引用；失败时线程池没提交过任务，不会留下线程
+                this.httpExecutor = pool;
                 this.boundPort = port;
                 this.packUrl = resolveUrl();
                 plugin.getLogger().info("资源包 HTTP 服务已启动，端口 " + port

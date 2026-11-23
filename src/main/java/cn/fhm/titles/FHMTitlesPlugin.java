@@ -203,7 +203,8 @@ public final class FHMTitlesPlugin extends JavaPlugin {
             display.clearAll();
         }
         if (store != null) {
-            store.saveAll();
+            // 关服路径必须同步写完：以前只往队列里塞，数据库 close 等不到队尾就丢了
+            store.saveDirtySync();
         }
         if (database != null) {
             database.close();

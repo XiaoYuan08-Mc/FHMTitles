@@ -41,9 +41,14 @@ public final class DisplayService {
 
     private final Map<UUID, Render> cache = new ConcurrentHashMap<>();
     private final Map<UUID, TextDisplay> heads = new ConcurrentHashMap<>();
+    /** 动画称号的纯文本缓存：每 tick 都要用，别反复 deserialize */
+    private final Map<String, PlainCache> plainCache = new ConcurrentHashMap<>();
     private cn.fhm.titles.resource.ImageTitleService images;
     private cn.fhm.titles.hook.PapiHook papi;
     private double phase = 0;
+
+    private record PlainCache(String raw, String plain) {
+    }
 
     public DisplayService(JavaPlugin plugin, Settings settings, Lang lang, TitleRegistry registry, DataStore store) {
         this.plugin = plugin;
@@ -148,8 +153,21 @@ public final class DisplayService {
             return TextUtil.parse(raw);
         }
         List<String> palette = title.palette == null || title.palette.isEmpty() ? settings.defaultPalette : title.palette;
+        return TextUtil.parse(TextUtil.animatedGradient(plainText(title, raw), palette, phase));
+    }
+
+    /**
+     * 动画称号每 rgb-interval-ticks 就要重新染色，原文不变时没必要每次再做一次
+     * MiniMessage 反序列化 + 纯文本化。
+     */
+    private String plainText(Title title, String raw) {
+        PlainCache cached = plainCache.get(title.id);
+        if (cached != null && cached.raw().equals(raw)) {
+            return cached.plain();
+        }
         String plain = TextUtil.plain(TextUtil.parse(raw));
-        return TextUtil.parse(TextUtil.animatedGradient(plain, palette, phase));
+        plainCache.put(title.id, new PlainCache(raw, plain));
+        return plain;
     }
 
     public Component prefix(Player player) {
@@ -193,6 +211,7 @@ public final class DisplayService {
     }
 
     public void refreshAll() {
+        plainCache.clear();
         for (Player player : Bukkit.getOnlinePlayers()) {
             refresh(player);
         }
@@ -250,13 +269,22 @@ public final class DisplayService {
         for (Player player : Bukkit.getOnlinePlayers()) {
             PlayerData data = store.get(player);
             Title title = equippedTitle(data);
-            if (title == null || !title.animated) {
+            if (title == null) {
+                continue;
+            }
+            TextDisplay display = heads.get(player.getUniqueId());
+            // 头顶实体被别的插件 / 指令清掉后没人重建，这里兜一下底
+            if (display != null && !display.isValid()) {
+                heads.remove(player.getUniqueId());
+                refresh(player);
+                continue;
+            }
+            if (!title.animated) {
                 continue;
             }
             Render render = render(title, player);
             cache.put(player.getUniqueId(), render);
-            TextDisplay display = heads.get(player.getUniqueId());
-            if (display != null && display.isValid()) {
+            if (display != null) {
                 display.text(render.head());
             }
         }

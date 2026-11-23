@@ -28,6 +28,25 @@ public final class PlayerData {
         this.uuid = uuid;
     }
 
+    /**
+     * 深拷贝一份不可变快照，交给数据库线程序列化。
+     * 直接把活对象丢给异步线程会有并发问题：主线程 grant/revoke 时 DB 线程正在遍历 owned（LinkedHashMap），
+     * 轻则 ConcurrentModificationException 让这次存档静默失败，重则写出半截数据。
+     */
+    public PlayerData copy() {
+        PlayerData copy = new PlayerData(uuid);
+        copy.name = name;
+        copy.equipped = equipped;
+        copy.coins = coins;
+        copy.showChat = showChat;
+        copy.showTab = showTab;
+        copy.showHead = showHead;
+        copy.owned.putAll(owned);
+        copy.purchased.addAll(purchased);
+        copy.claimed.addAll(claimed);
+        return copy;
+    }
+
     public boolean owns(String id) {
         return owned.containsKey(id);
     }

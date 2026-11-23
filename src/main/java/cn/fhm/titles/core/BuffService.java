@@ -131,20 +131,39 @@ public final class BuffService {
     /**
      * 进服 / 重载时清理残留：把所有称号可能加过的效果里，不属于当前佩戴称号的那些去掉，
      * 避免换了称号或删了定义后旧 BUFF 一直挂着。
+     *
+     * 判定收紧到"无限时长 + 等级与该词条声明的等级一致"，玩家自己喝的同类型药水、
+     * 其它插件给的永久 buff 不会被顺手删掉。
      */
     public void stripStale(Player player, Title equipped) {
         if (player == null) {
             return;
         }
         Set<PotionEffectType> keep = parseEffects(equipped);
-        Set<PotionEffectType> all = new HashSet<>();
+        Map<PotionEffectType, Set<Integer>> candidates = new HashMap<>();
         if (registry != null) {
             for (Title title : registry.all()) {
-                all.addAll(parseEffects(title));
+                if (title == equipped || title.buffs == null) {
+                    continue;
+                }
+                for (String raw : title.buffs) {
+                    Parsed parsed = parse(raw);
+                    if (parsed != null && !keep.contains(parsed.type())) {
+                        candidates.computeIfAbsent(parsed.type(), key -> new HashSet<>()).add(parsed.amplifier());
+                    }
+                }
             }
         }
-        all.removeAll(keep);
-        clearTypes(player, all);
+        for (Map.Entry<PotionEffectType, Set<Integer>> entry : candidates.entrySet()) {
+            PotionEffect current = player.getPotionEffect(entry.getKey());
+            if (current == null || current.getDuration() != INFINITE) {
+                continue;
+            }
+            if (!entry.getValue().contains(current.getAmplifier())) {
+                continue;
+            }
+            player.removePotionEffect(entry.getKey());
+        }
     }
 
     /** 佩戴称号后防止被其他效果覆盖，定期补一次。 */

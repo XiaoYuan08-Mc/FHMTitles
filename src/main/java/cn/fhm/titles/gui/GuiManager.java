@@ -109,6 +109,23 @@ public final class GuiManager {
         return item(settings.filler, Component.space(), null, null);
     }
 
+    /**
+     * 老资源包用 custom model data 选图标，目前没有等价的非过时写法（item_model 需要资源包提供
+     * items/*.json，会让现有材质包失效），所以统一在这里收口并抑制告警，等换包时再迁。
+     */
+    @SuppressWarnings("deprecation")
+    private void applyModel(ItemStack stack, int model) {
+        if (stack == null || model <= 0) {
+            return;
+        }
+        ItemMeta meta = stack.getItemMeta();
+        if (meta == null) {
+            return;
+        }
+        meta.setCustomModelData(model);
+        stack.setItemMeta(meta);
+    }
+
     private void fill(Inventory inventory) {
         for (int i = 0; i < inventory.getSize(); i++) {
             ItemStack existing = inventory.getItem(i);
@@ -274,11 +291,7 @@ public final class GuiManager {
             Title title = list.get(index);
             ItemStack stack = item(title.icon, titleItemName(title), titleLore(player, title, true),
                     "buy:" + title.id + ":" + (title.prices.isEmpty() ? -1 : 0));
-            if (title.model > 0) {
-                ItemMeta meta = stack.getItemMeta();
-                meta.setCustomModelData(title.model);
-                stack.setItemMeta(meta);
-            }
+            applyModel(stack, title.model);
             inventory.setItem(i, stack);
         }
 

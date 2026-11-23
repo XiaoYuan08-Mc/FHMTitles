@@ -114,6 +114,10 @@ public final class ShopService {
         int days = title.permanent() ? -1 : title.days;
         boolean granted = titles.grant(player, title.id, days, true);
         if (!granted) {
+            // 已经扣过款就退回去，别让玩家掏了钱什么都没拿到
+            if (entry != null) {
+                refund(player, entry);
+            }
             player.sendMessage(lang.prefix().append(lang.msg("shop.unavailable")));
             return false;
         }
@@ -169,6 +173,31 @@ public final class ShopService {
             }
             default -> {
                 return true;
+            }
+        }
+    }
+
+    /** 购买在扣款后失败时的退款路径。 */
+    private void refund(Player player, PriceEntry entry) {
+        switch (entry.type) {
+            case MONEY -> vault.deposit(player, entry.amount);
+            case POINTS -> points.give(player, (int) entry.amount);
+            case COIN -> {
+                PlayerData data = store.get(player);
+                data.coins += (long) entry.amount;
+                store.markDirty(player.getUniqueId());
+                store.save(player.getUniqueId());
+            }
+            case ITEM -> {
+                int amount = itemAmount(entry);
+                if (entry.item != null && amount > 0) {
+                    ItemStack back = new ItemStack(entry.item, amount);
+                    for (ItemStack leftover : player.getInventory().addItem(back).values()) {
+                        player.getWorld().dropItemNaturally(player.getLocation(), leftover);
+                    }
+                }
+            }
+            default -> {
             }
         }
     }

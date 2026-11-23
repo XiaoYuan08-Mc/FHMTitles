@@ -123,8 +123,37 @@ public final class TitleService {
         return true;
     }
 
-    /** 获取提示支持 CHAT / ACTIONBAR / TITLE 三种展示方式。 */
-    private void notifyAcquire(Player player, Title title, int days) {
+    /**
+     * 离线发放：只改数据（进服时 onJoin 会自动刷新显示并补 BUFF）。
+     * 供 /titles give、称号卡邮箱类场景使用。
+     */
+    public boolean grantOffline(PlayerData data, String id, int days) {
+        Title title = registry.get(id);
+        if (title == null || !title.enabled || data == null) {
+            return false;
+        }
+        boolean permanent = days < 0 || title.permanent();
+        data.grant(title.id, permanent ? -1 : days);
+        if (data.equipped.isEmpty()) {
+            data.equipped = title.id;
+        }
+        store.markDirty(data.uuid);
+        store.save(data.uuid);
+        return true;
+    }
+
+    /** 离线回收。 */
+    public boolean revokeOffline(PlayerData data, String id) {
+        if (data == null || !data.owned.containsKey(id)) {
+            return false;
+        }
+        data.revoke(id);
+        store.markDirty(data.uuid);
+        store.save(data.uuid);
+        return true;
+    }
+
+    /** 获取提示支持 CHAT / ACTIONBAR / TITLE 三种展示方式。 */    private void notifyAcquire(Player player, Title title, int days) {
         Map<String, Component> rich = new HashMap<>();
         rich.put("title", display.titleComponent(title, player));
         Component message = days < 0

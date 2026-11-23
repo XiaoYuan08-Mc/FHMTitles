@@ -101,10 +101,24 @@ public final class TextUtil {
             int to = (from + 1) % colors.length;
             double frac = scaled - Math.floor(scaled);
             int color = blend(colors[from], colors[to], frac);
-            out.append("<#").append(String.format("%06x", color)).append('>')
-                    .append(escape(String.valueOf(ch)));
+            out.append("<#");
+            appendHex6(out, color);
+            out.append('>');
+            // 只对真正会被 MiniMessage 解释的字符做转义，逐字调 escapeTags 在动画路径上太贵
+            if (ch == '<' || ch == '\\') {
+                out.append('\\');
+            }
+            out.append(ch);
         }
         return out.toString();
+    }
+
+    private static void appendHex6(StringBuilder out, int color) {
+        String hex = Integer.toHexString(color & 0xFFFFFF);
+        for (int pad = hex.length(); pad < 6; pad++) {
+            out.append('0');
+        }
+        out.append(hex);
     }
 
     public static int parseHex(String input) {

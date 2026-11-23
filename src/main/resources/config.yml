@@ -81,7 +81,8 @@ resource-pack:
   required: false
   prompt: "<gold>服务器提供了称号资源包，用于显示图片称号</gold>"
   # 内置 HTTP 服务的端口；填 0 关闭内置服务（此时请用 public-url 指向自己的 CDN/OSS）
-  port: 8123
+  # 家具插件默认用 8123，这里默认 8124，两个插件同时装不会抢端口
+  port: 8124
   # 客户端实际访问的资源包地址；留空则用 http://<服务器IP>:port/pack.zip
   # 服务器在 NAT/面板后面时必须手填公网地址，例如 https://cdn.example.com/fhm/pack.zip
   public-url: ""

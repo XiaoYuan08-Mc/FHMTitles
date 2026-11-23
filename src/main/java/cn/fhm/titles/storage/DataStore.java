@@ -55,21 +55,22 @@ public final class DataStore {
         if (data == null) {
             return;
         }
-        database.saveAsync(data);
+        // 传快照，别让 DB 线程读主线程正在改的集合
+        database.saveAsync(data.copy());
         dirty.remove(uuid);
     }
 
     public void saveSync(UUID uuid) {
         PlayerData data = cache.get(uuid);
         if (data != null) {
-            database.saveNow(data);
+            database.saveNow(data.copy());
         }
         dirty.remove(uuid);
     }
 
     public void saveAll() {
         for (PlayerData data : cache.values()) {
-            database.saveAsync(data);
+            database.saveAsync(data.copy());
         }
         dirty.clear();
     }
@@ -78,7 +79,7 @@ public final class DataStore {
         for (UUID uuid : dirty) {
             PlayerData data = cache.get(uuid);
             if (data != null) {
-                database.saveNow(data);
+                database.saveNow(data.copy());
             }
         }
         dirty.clear();

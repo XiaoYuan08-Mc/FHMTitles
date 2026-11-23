@@ -224,6 +224,29 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
         return player;
     }
 
+    /** 发放 / 回收 / 改币的目标：在线优先，离线也能通过 usercache 定位到 UUID。 */
+    private record Target(Player online, PlayerData data, String name) {
+        boolean isOnline() {
+            return online != null;
+        }
+    }
+
+    private Target resolveTarget(CommandSender sender, String name) {
+        Player online = Bukkit.getPlayerExact(name);
+        if (online != null) {
+            return new Target(online, plugin.store().get(online), online.getName());
+        }
+        org.bukkit.OfflinePlayer offline = Bukkit.getOfflinePlayerIfCached(name);
+        if (offline == null) {
+            sender.sendMessage(lang().prefix().append(lang().msg("cmd.player-offline", "player", name)));
+            return null;
+        }
+        PlayerData data = plugin.store().get(offline.getUniqueId());
+        String display = offline.getName() == null ? name : offline.getName();
+        data.name = display;
+        return new Target(null, data, display);
+    }
+
     private void give(CommandSender sender, String[] args) {
         if (!admin(sender)) {
             return;
@@ -232,7 +255,7 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(lang().prefix().append(lang().msg("cmd.usage", "usage", "/titles give <玩家> <称号ID> [天数]")));
             return;
         }
-        Player target = target(sender, args[1]);
+        Target target = resolveTarget(sender, args[1]);
         if (target == null) {
             return;
         }
@@ -242,8 +265,14 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             return;
         }
         int days = args.length > 3 ? parseInt(args[3], title.days) : title.days;
-        plugin.titles().grant(target, title.id, days, true);
-        sender.sendMessage(lang().prefix().append(lang().msg("cmd.given", "player", target.getName(), "id", title.id)));
+        boolean ok = target.isOnline()
+                ? plugin.titles().grant(target.online(), title.id, days, true)
+                : plugin.titles().grantOffline(target.data(), title.id, days);
+        if (!ok) {
+            sender.sendMessage(lang().prefix().append(lang().msg("shop.unavailable")));
+            return;
+        }
+        sender.sendMessage(lang().prefix().append(lang().msg("cmd.given", "player", target.name(), "id", title.id)));
     }
 
     private void take(CommandSender sender, String[] args) {
@@ -254,12 +283,15 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(lang().prefix().append(lang().msg("cmd.usage", "usage", "/titles take <玩家> <称号ID>")));
             return;
         }
-        Player target = target(sender, args[1]);
+        Target target = resolveTarget(sender, args[1]);
         if (target == null) {
             return;
         }
-        if (plugin.titles().revoke(target, args[2])) {
-            sender.sendMessage(lang().prefix().append(lang().msg("cmd.taken", "player", target.getName(), "id", args[2])));
+        boolean removed = target.isOnline()
+                ? plugin.titles().revoke(target.online(), args[2])
+                : plugin.titles().revokeOffline(target.data(), args[2]);
+        if (removed) {
+            sender.sendMessage(lang().prefix().append(lang().msg("cmd.taken", "player", target.name(), "id", args[2])));
         } else {
             sender.sendMessage(lang().prefix().append(lang().msg("error.not-owned", "title", args[2])));
         }
@@ -325,19 +357,21 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             sender.sendMessage(lang().prefix().append(lang().msg("cmd.usage", "usage", "/titles coins <玩家> <give|take|set> <数量>")));
             return;
         }
-        Player target = target(sender, args[1]);
+        Target target = resolveTarget(sender, args[1]);
         if (target == null) {
             return;
         }
-        PlayerData data = plugin.store().get(target);
-        long amount = parseInt(args[3], 0);
+        PlayerData data = target.data();
+        // 用 long 解析：int 会被 5000000000 这种数字直接溢出成 0
+        long amount = parseLong(args[3], 0);
         switch (args[2].toLowerCase(Locale.ROOT)) {
             case "take", "sub" -> data.coins = Math.max(0, data.coins - amount);
             case "set" -> data.coins = Math.max(0, amount);
             default -> data.coins += amount;
         }
-        plugin.store().markDirty(target.getUniqueId());
-        sender.sendMessage(lang().prefix().append(lang().msg("cmd.coins", "player", target.getName(),
+        plugin.store().markDirty(data.uuid);
+        plugin.store().save(data.uuid);
+        sender.sendMessage(lang().prefix().append(lang().msg("cmd.coins", "player", target.name(),
                 "amount", String.valueOf(data.coins), "coin", plugin.settings().coinName)));
     }
 
@@ -491,6 +525,14 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
     private int parseInt(String raw, int fallback) {
         try {
             return Integer.parseInt(raw);
+        } catch (NumberFormatException e) {
+            return fallback;
+        }
+    }
+
+    private long parseLong(String raw, long fallback) {
+        try {
+            return Long.parseLong(raw);
         } catch (NumberFormatException e) {
             return fallback;
         }

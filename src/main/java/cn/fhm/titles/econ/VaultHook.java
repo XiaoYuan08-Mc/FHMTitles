@@ -13,6 +13,7 @@ public final class VaultHook {
     private Object provider;
     private Method getBalance;
     private Method withdraw;
+    private Method deposit;
     private boolean available;
 
     public VaultHook() {
@@ -30,6 +31,7 @@ public final class VaultHook {
             provider = registration.getClass().getMethod("getProvider").invoke(registration);
             getBalance = economyClass.getMethod("getBalance", String.class);
             withdraw = economyClass.getMethod("withdrawPlayer", String.class, double.class);
+            deposit = economyClass.getMethod("depositPlayer", String.class, double.class);
             available = provider != null;
         } catch (Throwable ignored) {
             available = false;
@@ -58,6 +60,20 @@ public final class VaultHook {
         }
         try {
             Object response = withdraw.invoke(provider, player.getName(), amount);
+            Object success = response.getClass().getField("transactionSuccess").get(response);
+            return success instanceof Boolean flag && flag;
+        } catch (Throwable ignored) {
+            return false;
+        }
+    }
+
+    /** 退款用：购买在扣款后失败时把钱退回去。 */
+    public boolean deposit(Player player, double amount) {
+        if (!available || amount <= 0 || deposit == null) {
+            return false;
+        }
+        try {
+            Object response = deposit.invoke(provider, player.getName(), amount);
             Object success = response.getClass().getField("transactionSuccess").get(response);
             return success instanceof Boolean flag && flag;
         } catch (Throwable ignored) {

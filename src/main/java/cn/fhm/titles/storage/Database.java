@@ -146,8 +146,9 @@ public final class Database implements AutoCloseable {
             ps.setString(8, PlayerData.setSerialize(data.claimed));
             ps.setLong(9, System.currentTimeMillis());
             ps.executeUpdate();
-        } catch (SQLException e) {
-            plugin.getLogger().warning("保存玩家称号数据失败 (" + data.uuid + "): " + e.getMessage());
+        } catch (Exception e) {
+            // 以前只 catch SQLException，序列化抛的运行时异常会让整次存档静默消失
+            plugin.getLogger().warning("保存玩家称号数据失败 (" + data.uuid + "): " + e);
         }
     }
 
@@ -229,10 +230,14 @@ public final class Database implements AutoCloseable {
     @Override
     public void close() {
         executor.shutdown();
+        boolean finished = false;
         try {
-            executor.awaitTermination(5, TimeUnit.SECONDS);
+            finished = executor.awaitTermination(10, TimeUnit.SECONDS);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
+        }
+        if (!finished) {
+            plugin.getLogger().warning("关服时仍有未写完的存档任务，最近几秒的称号数据可能丢失");
         }
         try {
             if (connection != null && !connection.isClosed()) {
