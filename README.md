@@ -1,200 +1,137 @@
-# FHMTitles · 称号系统（Purpur / Paper 26.3）
+# FHMTitles
 
-自研称号插件，编译目标 `paper-api 26.3.build.258-stable`、Java 25，已在 **Purpur 26.3（API 26.3.build.2660-stable）** 实机验证：插件加载、SQLite 建表、称号解析、指令、重载、自动备份全部正常。
+Minecraft 称号插件，跑在 Paper / Purpur 26.3、Java 25 上。称号可以是纯文本，可以带药水效果、粒子和 RGB 流光，也能直接把一张 PNG 挂在名字前面当图片称号。
 
-- 产物：`build/libs/FHMTitles-1.0.2.jar`（当前版本 1.0.2）
-- 源码：`src/main/java/cn/fhm/titles`，配置在 `src/main/resources`
-- 内置 **27 个称号定义**：10 个图片称号（绘梦 / 星辰 / 烈焰 / 幽兰 / 极光 / 花语 / 雷帝 / 至尊 / 夜莺 / 丰饶）+ 17 个文本 / BUFF / 粒子 / RGB 称号，装好即可直接玩
+自带 27 个称号，装好就能用。其中 10 个是图片称号，17 个是文本、BUFF、粒子和 RGB。数据存 SQLite 或 MySQL。
 
 ## 安装
 
-1. 把 `FHMTitles-1.0.2.jar` 丢进服务端 `plugins/`。
-2. 首次启动会自动从 Paper 镜像下载 `sqlite-jdbc` 与 `mysql-connector-j`（放到服务器根目录 `libraries/`），**只需联网一次**；纯离线服务器可预先手动放入同名 jar。
-3. 启动后生成 `plugins/FHMTitles/`：`config.yml`、`titles.yml`、`lang/zh_CN.yml`、`titles.db`、`backUp/`。
-4. `/titles` 打开主界面。注意：插件注册的是 `/titles`（别名 `/cht`、`/称号`），**不占用原版 `/title`**，不会破坏屏幕标题指令。
+1. jar 丢进 `plugins/`，启动。
+2. 首次启动会从 Paper 仓库拉 `sqlite-jdbc` 和 `mysql-connector-j` 到服务端根目录 `libraries/`，需要联网一次。离线服可以提前把这两个 jar 放进去。
+3. 生成 `plugins/FHMTitles/`：`config.yml`、`titles.yml`、`lang/zh_CN.yml`、`titles.db`、`backUp/`。
+4. 游戏里 `/titles` 打开界面。
 
-软依赖（装了即自动接管，不装自动降级并给出提示）：
+命令是 `/titles`，别名 `/cht`、`/称号`，不占原版 `/title`。
 
-| 插件 | 用途 | 不装时 |
-|---|---|---|
-| Vault | 金币购买 | 金币价格不可用，其余支付方式正常 |
-| PlayerPoints | 点券购买 | 点券价格不可用 |
-| PlaceholderAPI | 变量输出/外部变量解析 | 变量扩展不注册；称号文本里的 `%papi_xxx%` 原样显示 |
+软依赖：
 
-## 指令
+- Vault：没装的话金币价格买不了，其它支付方式照常
+- PlayerPoints：没装的话点券价格买不了
+- PlaceholderAPI：没装的话称号文本里的 `%papi_xxx%` 原样显示
 
-| 指令 | 说明 | 权限 |
-|---|---|---|
-| `/titles` | 打开称号主界面 | `fhmtitles.use` |
-| `/titles shop [分类]` | 打开分类商店（TEXT/BUFF/PARTICLE/IMAGE/RGB） | `fhmtitles.shop` |
-| `/titles list [分类]` | 聊天栏查看已拥有称号 | `fhmtitles.use` |
-| `/titles info <ID>` | 称号详情（分类/品质/时长/BUFF/价格） | `fhmtitles.use` |
+## 命令
+
+| 命令 | 说明 | 权限 |
+| --- | --- | --- |
+| `/titles` | 主界面 | `fhmtitles.use` |
+| `/titles shop [分类]` | 分类商店，TEXT/BUFF/PARTICLE/IMAGE/RGB | `fhmtitles.shop` |
+| `/titles list [分类]` | 聊天栏看已拥有 | `fhmtitles.use` |
+| `/titles info <ID>` | 称号详情 | `fhmtitles.use` |
 | `/titles equip <ID>` / `unequip` | 佩戴 / 卸下 | `fhmtitles.equip` |
-| `/titles toggle <chat\|tab\|head>` | 三处显示开关 | `fhmtitles.equip` |
-| `/titles give <玩家> <ID> [天数]` | 发放称号（天数 -1 永久） | `fhmtitles.admin` |
-| `/titles take <玩家> <ID>` | 回收称号 | `fhmtitles.admin` |
-| `/titles card <玩家> <ID> [天数] [数量]` | 发放指定称号卡 | `fhmtitles.admin` |
-| `/titles randomcard <玩家> <品质> [数量]` | 发放随机称号卡 | `fhmtitles.admin` |
-| `/titles coins <玩家> <give\|take\|set> <数量>` | 调整称号币 | `fhmtitles.admin` |
-| `/titles create <ID> <文本>` | 新建称号（支持 `&` 颜色与 MiniMessage） | `fhmtitles.admin` |
-| `/titles delete <ID>` | 删除称号并联动清理玩家数据 | `fhmtitles.admin` |
-| `/titles image <ID> <图片文件> [字形数] [高度] [ascent]` | 给称号指定 `images/` 下的图片并立即重建资源包 | `fhmtitles.admin` |
-| `/titles pack [send [玩家\|all]]` | 重建资源包 / 把资源包重新推给玩家 | `fhmtitles.admin` |
-| `/titles reload` | 重载配置/称号/语言，并重建资源包 | `fhmtitles.admin` |
+| `/titles toggle <chat\|tab\|head>` | 显示开关 | `fhmtitles.equip` |
+| `/titles give <玩家> <ID> [天数]` | 发放，支持离线玩家，-1 为永久 | `fhmtitles.admin` |
+| `/titles take <玩家> <ID>` | 回收，支持离线玩家 | `fhmtitles.admin` |
+| `/titles card <玩家> <ID> [天数] [数量]` | 发称号卡 | `fhmtitles.admin` |
+| `/titles randomcard <玩家> <品质> [数量]` | 发随机称号卡 | `fhmtitles.admin` |
+| `/titles coins <玩家> <give\|take\|set> <数量>` | 改称号币 | `fhmtitles.admin` |
+| `/titles create <ID> <文本>` | 新建称号 | `fhmtitles.admin` |
+| `/titles delete <ID>` | 删除并清理玩家数据 | `fhmtitles.admin` |
+| `/titles image <ID> <文件> [字形数] [高度] [ascent]` | 指定图片并重建资源包 | `fhmtitles.admin` |
+| `/titles pack [send [玩家\|all]]` | 重建 / 重发资源包 | `fhmtitles.admin` |
+| `/titles reload` | 重载配置、称号、语言、资源包 | `fhmtitles.admin` |
 
-## titles.yml 结构
+后三个只在玩家手里有装备时才有意义，控制台发不了称号卡。
+
+## titles.yml
 
 ```yaml
 titles:
   warrior:
-    text: "<gradient:#ff4b4b:#ffb703>[战神]</gradient> "   # 前缀文本（MiniMessage）
-    suffix: " <red>⚔</red>"                                 # 后缀文本，可空
-    tags: [TEXT]            # TEXT / BUFF / PARTICLE / IMAGE / RGB，决定进哪些商店
-    tier: EPIC              # COMMON / RARE / EPIC / LEGEND / MYTHIC（随机卡按此抽取）
-    icon: NETHERITE_SWORD   # GUI 展示材质
-    model: 0                # 自定义模型数据，0 为不使用
+    text: "<gradient:#ff4b4b:#ffb703>[战神]</gradient> "
+    suffix: " <red>⚔</red>"
+    tags: [TEXT]                  # TEXT / BUFF / PARTICLE / IMAGE / RGB
+    tier: EPIC                    # COMMON / RARE / EPIC / LEGEND / MYTHIC
+    icon: NETHERITE_SWORD
+    model: 0                      # 自定义模型数据，0 不用
     lore: ["<gray>描述</gray>"]
     enabled: true
-    days: 30                # -1 永久，>0 限时天数
-    weight: 15              # 随机卡权重
-    permission: ""          # 佩戴/购买所需权限节点，空为无限制
-    buffs: ["SPEED:1"]      # 药水效果:等级，等级从 1 开始
-    particle: "FLAME"       # 粒子名，或 "DUST:#ff8800:1.2"
+    days: 30                      # -1 永久
+    weight: 15                    # 随机卡权重
+    permission: ""
+    buffs: ["SPEED:1"]
+    particle: "FLAME"             # 或 DUST:#ff8800:1.2
     particle-count: 10
-    animated: true          # RGB 流光
-    palette: ["#ff4b4b", "#ffc93c"]   # 留空用 config 默认色板
-    image-glyph: "✦"        # 旧版占位字段，已由下面的 image 取代，可留空
-    image:                  # 图片称号（可选）
-      file: glyph.png       # 文件在 plugins/FHMTitles/images/ 下
-      glyphs: 1             # 一张图切成几个字形，宽度必须能被整除
-      height: 16            # 字形像素高度，8 约等于一行字，徽章建议 14~18
-      ascent: 14            # 向上偏移像素，约等于 height-2 时坐在基线上
-      fallback: "✦[绘]✦ "   # 客户端没装资源包时显示的替代文字
+    animated: true
+    palette: ["#ff4b4b", "#ffc93c"]
+    image:                        # 图片称号，可选
+      file: glyph.png
+      glyphs: 1
+      height: 16
+      ascent: 14
+      fallback: "✦[绘]✦ "
     prices:
-      - type: MONEY         # MONEY / POINTS / COIN / ITEM
+      - type: MONEY
         amount: 5000
       - type: ITEM
         item: NETHER_STAR
         item-amount: 3
 ```
 
-## 图片称号（PNG → 自定义字体字形）
+`config.yml` 常改的几项：`storage.type`（sqlite / mysql）、`display.chat-format`、`display.tab-format`、`display.head.*`、`resource-pack.*`。改完 `/titles reload`，换存储类型要重启。
 
-Minecraft 没有原生的“图片文字”，通用做法是**资源包自定义 bitmap 字体**。插件已经把这条链路全部自动化：
+## 图片称号
 
-1. 把 PNG 放进 `plugins/FHMTitles/images/`（带透明底、高度 ≤ 32px、内容不要留白）。
-2. 在 `titles.yml` 里给称号写 `image:`，或直接执行 `/titles image <ID> <文件名> [字形数] [高度] [ascent]`。
-3. 插件自动完成：分配私用区码位（U+E000 起，映射持久化在 `images/glyphs.yml`）→ 生成 `resourcepack/` → 打包成 `resourcepack.zip`（固定时间戳，同内容同 SHA-1）→ 起内置 HTTP 服务对外托管 → 玩家进服自动下发。
-4. 生成的资源包结构：
+原理是资源包里的自定义 bitmap 字体，插件把这条链路包了：
+
+1. PNG 放 `plugins/FHMTitles/images/`，透明底，高度别超过 32px，上下不要留白。
+2. `titles.yml` 里写 `image:`，或者 `/titles image <ID> <文件名> [字形数] [高度] [ascent]`。
+3. 插件分配私用区码位（U+E000 起，映射存在 `images/glyphs.yml`），生成 `resourcepack/`，打包成 `resourcepack.zip`，起内置 HTTP 服务对外托管，玩家进服自动下发。
+
+生成的包结构：
 
 ```
-pack.mcmeta                                     {"pack":{"min_format":65,"max_format":200,...}}
-assets/fhmtitles/font/titles.json               每个称号一个 bitmap provider
-assets/fhmtitles/textures/title/<id>.png        原图
+pack.mcmeta
+assets/fhmtitles/font/titles.json
+assets/fhmtitles/textures/title/<id>.png
 ```
 
-渲染时图片段单独用 `fhmtitles:titles` 这个字体，普通文字段仍走默认字体，不会覆盖原版字体（不改 `minecraft:default`）。
+图片段单独走 `fhmtitles:titles` 字体，文字段还是原版字体，没动 `minecraft:default`。
 
-分发与兼容：
+几种情况：
 
-- `resource-pack.port` 是内置 HTTP 端口；服务器在 NAT / 面板 / 反代后面时，必须把 `resource-pack.public-url` 填成客户端能访问到的完整地址（如 `https://cdn.example.com/fhm/pack.zip`），否则客户端下载不到包。
-- `resource-pack.required: false`（默认）：拒绝加载的玩家只是在图片位置看到 `fallback` 文字，功能不受影响；改成 `true` 会把不装包的玩家踢下线。
-- `packLoaded` 状态按玩家跟踪：收到 `SUCCESSFULLY_LOADED` 才切成图片，`DECLINED / FAILED_DOWNLOAD / INVALID_URL / DISCARDED` 回退文字，加载完成后自动刷新 TAB 与头顶。
-- 26.3 的 `pack.mcmeta` 用 `min_format` / `max_format`（1.21.9 起不再用 `supported_formats`），默认区间 65–200 覆盖当前资源包格式；若以后版本号漂移，改 `resource-pack.min-format / max-format` 即可。
-- 客户端已下载过的旧包靠 SHA-1 缓存命中；重新生成且内容不变时 hash 不变，玩家不会重复下载。
+- 服务器在 NAT 或面板后面，必须把 `resource-pack.public-url` 填成客户端能访问的地址，不然下不到包。
+- `resource-pack.required` 默认 false，玩家拒绝加载只是在图片位置看到 `fallback` 文字；改 true 会把不装包的玩家踢下线。
+- 端口默认 8124（8123 留给家具插件），被占会自动往后顺延 10 个，日志里会写真实端口。
+- 包内容没变时 SHA-1 不变，客户端走缓存不会重复下载。
+- 图片显示成白方块，先看 `/titles pack` 打印的地址能不能在浏览器里下载到 zip。多半是端口冲突或者 `public-url` 填错。
 
-调试：
+## 几个说明
 
-- `/titles pack` 会打印图片数量、包大小、前 8 位 hash、访问地址，以及每条校验失败原因（缺图、宽高比过极端、宽度不能被字形数整除）。
-- 直接用浏览器访问资源包地址可确认能否下载；`pack.mcmeta`/字体 JSON 生成在 `plugins/FHMTitles/resourcepack/`，可直接审阅。
-- 示例图 `glyph.png`（“绘梦”徽章）首次启动自动释放，`glyph` 称号开箱即可看到效果。
+- 管理界面能改文本、启停、删除；价格、天数、材质这些去 `titles.yml` 改完 reload。
+- `reload` 能热更称号、语言、显示格式、经济和奖励配置，`storage` 段要重启。
+- 称号 BUFF 是无限时长药水效果，插件记录自己加的是哪一层，摘称号时只清这一层，不会动玩家自己喝的。
+- 头顶称号是骑在玩家身上的 TextDisplay，人多可以把 `display.head.view-distance` 调到 16~24。
+- 只认自己包的 UUID 回执，别的插件发的资源包加载成功不会被当成我们的。
 
-### 常见问题：图片显示成缺字方块
+## 构建
 
-1. **端口被别的插件占用**（最常见）。日志里如果出现 `资源包 HTTP 服务启动失败`，或者另一个插件也监听同一个端口，客户端拿到的是**别人的包**，我们的字体自然不存在 → 图片位置显示白方块。1.0.1 起会自动往后顺延最多 10 个端口，日志会写明真实端口：`资源包 HTTP 服务已启动，端口 8124（8123 被占用，自动顺延）`，同时 `图片称号资源包地址` 跟着变成 `http://…:8124/pack.zip`。用 `/titles pack` 复核地址最准。
-2. **包身份走 UUID**。下发时用固定 UUID（`FHMTitles:resourcepack`）标记我们的包，`PlayerResourcePackStatusEvent` 只认这个 UUID 回执，别的插件（Furniture、ItemsAdder 之类）的 `SUCCESSFULLY_LOADED` 不会再被误判成“我们的包已加载”。
-3. **叠加而不是顶掉**。`ResourcePackRequest.replace(false)`：我们只把自己的包加进队列，不会清掉服务器上其它插件已发的包；反过来别的插件如果用了 `replace(true)`，它有可能把我们的包顶掉，这种冲突只能让其中一个插件改用外部 URL 或换端口。
-4. **`required: false` 时先看提示**。客户端会弹“是否加载资源包”，如果玩家点了否，就回退成 `fallback` 文字（默认 `✦[绘]✦`），不是 BUG。
-5. 确认客户端真的拿到了我们的包：`/titles pack` 打印的地址用浏览器打开，应当直接下载 zip，里面能看到 `assets/fhmtitles/font/titles.json`。
-
-## 内置称号一览
-
-| 分类 | 称号 ID | 展示 |
-|---|---|---|
-| 图片 | `glyph` | 绘梦徽章 |
-| 图片 | `img_star` / `img_flame` / `img_orchid` | 星辰 / 烈焰 / 幽兰 |
-| 图片 | `img_aurora` / `img_flower` / `img_thunder` | 极光 / 花语 / 雷帝 |
-| 图片 | `img_supreme` / `img_night` / `img_bounty` | 至尊 / 夜莺 / 丰饶 |
-| 文本 | `novice` / `bard` / `merchant` / `legend` | 新手 / 吟游 / 商贾 / 传说 |
-| BUFF | `guard` / `miner` | 抗性+吸收 / 急迫+夜视 |
-| 粒子 | `storm` / `blossom` / `spirit` / `dragon` | 电火花 / 樱花 / 不死图腾 / 橙色尘 |
-| RGB | `vesper` / `founder` | 暮色流光 / 创世彩虹 |
-
-徽章 PNG 由 `tools/gen_badges.ps1`（System.Drawing 程序化绘制，80×24 透明底圆角胶囊）生成，输出到 `src/main/resources/images/`；想换文案改脚本里的数组重跑即可，也可用 `/titles image <ID> <文件名>` 换成自己的图。
-
-## 25 项特性对照
-
-| # | 特性 | 实现 |
-|---|---|---|
-| 1 | MySQL / SQLite | `storage.type`，同一套 SQL 抽象；SQLite 单连接 + 单线程执行器 |
-| 2 | 按类型打开不同商店 | 主界面 5 个分类入口，`open:shop:<分类>` |
-| 3 | 称号管理 GUI | `/titles` 内管理员按钮：左键启停、右键聊天栏改文本、Shift+左键删除 |
-| 4 | 称号仓库 | “我的称号”分页列表，点击即换、再点卸下 |
-| 5 | 数量奖励 + GUI | `rewards:` 阈值，达到自动发放，`/titles` 内可看领取状态 |
-| 6 | 指定称号卡 | `/titles card`，物品带 PDC 记录 ID+天数，右键消耗 |
-| 7 | 随机称号卡 | `/titles randomcard`，按品质建池、权重抽取、优先未拥有 |
-| 8 | 多种购买方式 | Vault 金币 / PlayerPoints 点券 / 称号币 / 任意物品（真实扣除） |
-| 9 | 限时 / 永久出售 | `days` 字段，购买后写入到期时间戳 |
-| 10 | 文本与 lore 自定义 | 全部消息走 `lang/zh_CN.yml`，称号 lore 在 titles.yml |
-| 11 | 性能 | 渲染结果主线程缓存、聊天渲染器只读缓存、DB 单线程、动画/粒子间隔可调、头顶 `view-range` |
-| 12 | PlaceholderAPI | `%fhmtitles_display% / _prefix / _suffix / _name / _equipped / _count / _coins / _chat / _tab / _head / _has_<ID>%` |
-| 13 | 删除称号联动 | 删除时清空所有玩家的仓库、已购记录、佩戴状态 |
-| 14 | 删除 BUFF 联动 | BUFF 挂在称号定义上，称号删除后效果随佩戴清理失效 |
-| 15 | 商店隐藏已购 | `shop.hide-purchased: true`，买过的称号只对该玩家隐藏 |
-| 16 | 聊天显示开关 | 主界面 / `/titles toggle chat` |
-| 17 | TAB 与头顶开关 | 同上，分别独立 |
-| 18 | 称号 BUFF | 无限时长药水效果，只移除本插件加上的那一层，切称号/到期/删定义都会清，掉线重进按当前佩戴重挂 |
-| 19 | 获取消息类型 | `title.acquire-message-type: CHAT / ACTIONBAR / TITLE / NONE` |
-| 20 | 自定义材质 | `icon` + `model`（自定义模型数据） |
-| 21 | 粒子特效 | `particle` 支持普通粒子与染色 DUST |
-| 21b | 图片称号 | PNG → 自定义 bitmap 字体字形，自动生成/托管资源包，未装包回退文字 |
-| 22 | UUID 存储 | 主键为 UUID 字符串，改名不丢数据 |
-| 23 | MiniMessage | 全链路 MiniMessage，`&` 颜色码在建称号时自动转换 |
-| 24 | 自动备份 | `backUp/titles-时间戳.sql`，按 `keep` 数量滚动清理 |
-| 25 | 多语言 | `lang/<code>.yml`，`config.yml` 的 `language` 切换 |
-
-## 已知边界
-
-- 管理 GUI 目前能改文本、启停、删除；**改价格/天数/材质/粒子**请在 `titles.yml` 改完 `/titles reload`（这是刻意保留的“高级编辑走文件”路线，避免后台输入框堆成表单）。
-- `reload` 能热更称号、语言、显示格式、经济与奖励配置；**改 `storage` 段（换 SQLite/MySQL）必须重启**，连接池只在启动时建立。
-- 称号文本与后缀里的 `%papi_xxx%` 会按玩家实时解析（需要 PlaceholderAPI，未装则原样显示）；`chat-format` 这类格式串里的变量不走 PAPI，避免 `%prefix%` 之类被当成占位符吞掉。
-- BUFF 清理由插件记录“自己加的哪一层”来判断：玩家自己喝的同类型药水不会被摘称号带走；但如果你手动覆盖成无限时长的同类效果，会被判定成插件的效果一并清掉。
-- 图片称号的纵向对齐由 `ascent` / `height` 控制，不同字体缩放档位下观感会有差异，建议在客户端里微调到合适值后固定下来。
-- 头顶称号是 TextDisplay 乘客实体，位置/大小/可见距离在 `config.yml` 的 `display.head` 三项里调；人多时可把 `view-distance` 调到 16～24。
-- 头顶默认两行：`head-format: '%prefix%\n<white>%player%</white>'`——`\n` 是换行，称号自动排到玩家名上一行；`TextDisplay` 本身支持多行，行数再多也照样渲染，只需相应调高 `display.head.y-offset`（默认 0.45，两行时的值，单行可用 0.35）。
-- Vault 与 PlayerPoints 走反射桥接，未装时相关价格直接不可购买并提示，不会抛异常。
-
-## 二次开发
-
-```powershell
-gradle build          # 需 JDK 25（Gradle 会用 toolchain 自动准备）
-gradle runServer      # 未配置，建议直接用测试服验证
+```
+gradle build
 ```
 
-主要包结构：
+需要 JDK 25，Gradle 会用 toolchain 自己找。
 
 ```
 cn.fhm.titles
-├─ core      TitleService / DisplayService / BuffService / ParticleService / RewardService
-├─ model     Title / TitleRegistry / PlayerData / Category / Tier / PriceEntry
-├─ storage   Database（SQLite|MySQL）/ DataStore
-├─ gui       GuiManager（主界面/商店/仓库/管理/奖励/确认）/ InputManager
-├─ shop      ShopService（四种支付校验与扣款）
-├─ item      CardFactory（指定卡 / 随机卡）
-├─ resource  ImageTitleService（PNG → 字形 → 资源包 → HTTP 分发）
-├─ listener  Player / Chat / Gui / Card / ResourcePack
-├─ command   TitleCommand
-├─ econ      VaultHook / PointsHook（反射）
-├─ hook      PapiHook
-└─ papi      FHMTitleExpansion
+├─ core      称号、显示、BUFF、粒子、奖励
+├─ model     数据模型与称号库
+├─ storage   SQLite / MySQL
+├─ gui       主界面、商店、仓库、管理
+├─ shop      四种支付
+├─ item      称号卡
+├─ resource  图片称号与资源包
+├─ listener  玩家、聊天、GUI、卡片、资源包
+├─ command   指令
+├─ econ      Vault / PlayerPoints 反射桥
+└─ papi      PlaceholderAPI 扩展
 ```

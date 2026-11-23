@@ -3,7 +3,7 @@ version: '${version}'
 main: cn.fhm.titles.FHMTitlesPlugin
 api-version: '26.3'
 authors: [FHM]
-description: 称号系统 - 商店 / 仓库 / BUFF / 粒子 / RGB / 图片称号 / 前缀后缀
+description: 称号系统，商店、称号卡、BUFF、图片称号都能做
 website: https://mcfhm.cn
 softdepend:
   - Vault
