@@ -23,7 +23,7 @@ display:
   # %prefix% %suffix% %player% %message% 四个变量可在格式里任意使用
   chat-format: "%prefix%<white>%player%</white>%suffix%<dark_gray> » </dark_gray><gray>%message%</gray>"
   tab-format: "%prefix%<white>%player%</white>%suffix%"
-  head-format: "%prefix%"
+  head-format: "%prefix%<white>%player%</white>"
   tab-enabled: true
   chat-enabled: true
   head:

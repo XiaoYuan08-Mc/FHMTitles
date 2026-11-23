@@ -7,7 +7,9 @@ import cn.fhm.titles.model.Title;
 import cn.fhm.titles.model.TitleRegistry;
 import cn.fhm.titles.storage.DataStore;
 import cn.fhm.titles.util.TextUtil;
+import net.kyori.adventure.key.Key;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.Style;
 import org.bukkit.Bukkit;
 import org.bukkit.Color;
 import org.bukkit.Location;
@@ -115,11 +117,12 @@ public final class DisplayService {
         if (image.equals(Component.empty())) {
             return text;
         }
+        // 分隔空格必须显式用原版字体：自定义字体里没有空格字形，否则会渲染成缺字方块
+        Component gap = Component.text(" ").style(Style.style().font(Key.key("minecraft", "default")));
         if (text.equals(Component.empty())) {
-            // 纯图片称号补一个空格，避免和玩家名黏在一起
-            return image.append(Component.text(" "));
+            return image.append(gap);
         }
-        return image.append(Component.text(" ")).append(text);
+        return image.append(gap).append(text);
     }
 
     private Component textComponent(Title title) {

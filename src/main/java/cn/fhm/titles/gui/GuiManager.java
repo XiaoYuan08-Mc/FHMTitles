@@ -112,7 +112,9 @@ public final class GuiManager {
     private void fill(Inventory inventory) {
         ItemStack filler = filler();
         for (int i = 0; i < inventory.getSize(); i++) {
-            if (inventory.getItem(i) == null) {
+            ItemStack existing = inventory.getItem(i);
+            // 新版 Bukkit 空槽可能返回 AIR 而不是 null，两种都要判
+            if (existing == null || existing.getType().isAir()) {
                 inventory.setItem(i, filler);
             }
         }
