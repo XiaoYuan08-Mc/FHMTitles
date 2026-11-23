@@ -108,6 +108,14 @@ assets/fhmtitles/textures/title/<id>.png        原图
 - 直接用浏览器访问资源包地址可确认能否下载；`pack.mcmeta`/字体 JSON 生成在 `plugins/FHMTitles/resourcepack/`，可直接审阅。
 - 示例图 `glyph.png`（“绘梦”徽章）首次启动自动释放，`glyph` 称号开箱即可看到效果。
 
+### 常见问题：图片显示成缺字方块
+
+1. **端口被别的插件占用**（最常见）。日志里如果出现 `资源包 HTTP 服务启动失败`，或者另一个插件也监听同一个端口，客户端拿到的是**别人的包**，我们的字体自然不存在 → 图片位置显示白方块。1.0.1 起会自动往后顺延最多 10 个端口，日志会写明真实端口：`资源包 HTTP 服务已启动，端口 8124（8123 被占用，自动顺延）`，同时 `图片称号资源包地址` 跟着变成 `http://…:8124/pack.zip`。用 `/titles pack` 复核地址最准。
+2. **包身份走 UUID**。下发时用固定 UUID（`FHMTitles:resourcepack`）标记我们的包，`PlayerResourcePackStatusEvent` 只认这个 UUID 回执，别的插件（Furniture、ItemsAdder 之类）的 `SUCCESSFULLY_LOADED` 不会再被误判成“我们的包已加载”。
+3. **叠加而不是顶掉**。`ResourcePackRequest.replace(false)`：我们只把自己的包加进队列，不会清掉服务器上其它插件已发的包；反过来别的插件如果用了 `replace(true)`，它有可能把我们的包顶掉，这种冲突只能让其中一个插件改用外部 URL 或换端口。
+4. **`required: false` 时先看提示**。客户端会弹“是否加载资源包”，如果玩家点了否，就回退成 `fallback` 文字（默认 `✦[绘]✦`），不是 BUG。
+5. 确认客户端真的拿到了我们的包：`/titles pack` 打印的地址用浏览器打开，应当直接下载 zip，里面能看到 `assets/fhmtitles/font/titles.json`。
+
 ## 25 项特性对照| # | 特性 | 实现 |
 |---|---|---|
 | 1 | MySQL / SQLite | `storage.type`，同一套 SQL 抽象；SQLite 单连接 + 单线程执行器 |

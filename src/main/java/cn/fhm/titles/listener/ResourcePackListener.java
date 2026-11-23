@@ -32,7 +32,7 @@ public final class ResourcePackListener implements Listener {
         if (plugin.images() == null) {
             return;
         }
-        plugin.images().onStatus(event.getPlayer(), event.getStatus().name());
+        plugin.images().onStatus(event.getPlayer(), event.getID(), event.getStatus().name());
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

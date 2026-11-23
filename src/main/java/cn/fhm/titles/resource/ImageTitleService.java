@@ -6,6 +6,8 @@ import cn.fhm.titles.model.TitleRegistry;
 import cn.fhm.titles.util.TextUtil;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import net.kyori.adventure.resource.ResourcePackInfo;
+import net.kyori.adventure.resource.ResourcePackRequest;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.Style;
 import net.kyori.adventure.text.format.TextDecoration;
@@ -22,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.security.MessageDigest;
@@ -54,6 +57,8 @@ public final class ImageTitleService {
     public static final String FONT_NAMESPACE = "fhmtitles";
     public static final String FONT_NAME = "titles";
     public static final Key FONT_KEY = Key.key(FONT_NAMESPACE + ":" + FONT_NAME);
+    /** 资源包固定 UUID：用来区分客户端返回的状态到底属于哪个插件的包。 */
+    public static final UUID PACK_ID = UUID.nameUUIDFromBytes("FHMTitles:resourcepack".getBytes(StandardCharsets.UTF_8));
 
     private final JavaPlugin plugin;
     private final Settings settings;
@@ -72,6 +77,7 @@ public final class ImageTitleService {
     private volatile String packHash = "";
     private volatile String packUrl = "";
     private volatile long builtAt = 0L;
+    private volatile int boundPort = 0;
     private HttpServer http;
 
     public ImageTitleService(JavaPlugin plugin, Settings settings, TitleRegistry registry) {
@@ -120,16 +126,18 @@ public final class ImageTitleService {
             http.stop(0);
             http = null;
         }
+        boundPort = 0;
     }
 
-    /** /titles reload 时按新配置重建资源包并重启 HTTP 服务。 */
+    /** /titles reload 时按新配置重启服务并重建资源包。 */
     public void reload() {
         stop();
         if (!settings.packEnabled) {
             return;
         }
-        build();
+        // 先占好端口，保证下发出去的 URL 是真实可用的那个
         startHttp();
+        build();
     }
 
     /** 玩家进服时下发资源包。 */
@@ -144,8 +152,11 @@ public final class ImageTitleService {
         packLoaded.remove(player.getUniqueId());
     }
 
-    /** 资源包状态回调。 */
-    public void onStatus(Player player, String status) {
+    /** 资源包状态回调；只认我们自己那个 UUID 的包，别的插件的包状态一律忽略。 */
+    public void onStatus(Player player, UUID packId, String status) {
+        if (!PACK_ID.equals(packId)) {
+            return;
+        }
         boolean loaded = "SUCCESSFULLY_LOADED".equals(status);
         boolean failed = "DECLINED".equals(status) || "FAILED_DOWNLOAD".equals(status)
                 || "FAILED_RELOAD".equals(status) || "INVALID_URL".equals(status) || "DISCARDED".equals(status);
@@ -347,11 +358,25 @@ public final class ImageTitleService {
 
     /** 手动把资源包推给某个玩家 / 所有人。 */
     public void send(Player player) {
-        if (packBytes.length == 0 || packUrl.isEmpty() || packHash.isEmpty()) {
+        if (!settings.packEnabled || packBytes.length == 0 || packUrl.isEmpty() || packHash.isEmpty()) {
             return;
         }
+        // 换包后先把状态置为未加载，等客户端回执再切图片
+        packLoaded.put(player.getUniqueId(), Boolean.FALSE);
         try {
-            player.setResourcePack(packUrl, packHash, settings.packRequired, TextUtil.parse(settings.packPrompt));
+            ResourcePackInfo info = ResourcePackInfo.resourcePackInfo()
+                    .id(PACK_ID)
+                    .uri(URI.create(packUrl))
+                    .hash(packHash)
+                    .build();
+            ResourcePackRequest request = ResourcePackRequest.resourcePackRequest()
+                    .packs(info)
+                    .prompt(TextUtil.parse(settings.packPrompt))
+                    .required(settings.packRequired)
+                    // 不替换服务器上其它插件（比如 Furniture）已经发过的包，只叠加
+                    .replace(false)
+                    .build();
+            player.sendResourcePacks(request);
         } catch (Throwable t) {
             plugin.getLogger().warning("下发资源包失败(" + player.getName() + "): " + t.getMessage());
         }
@@ -362,43 +387,59 @@ public final class ImageTitleService {
         if (!custom.isEmpty()) {
             return custom;
         }
-        if (settings.packPort <= 0) {
+        int port = boundPort > 0 ? boundPort : settings.packPort;
+        if (port <= 0) {
             return "";
         }
         String host = Bukkit.getIp();
         if (host == null || host.isBlank() || "0.0.0.0".equals(host)) {
             host = "127.0.0.1";
         }
-        return "http://" + host + ":" + settings.packPort + "/pack.zip";
+        return "http://" + host + ":" + port + "/pack.zip";
     }
 
+    /**
+     * 起内置 HTTP 服务。端口被别的插件（比如 Furniture 也有一套资源包服务）占用时，
+     * 自动往后试最多 10 个端口，并把实际端口写回 packUrl。
+     */
     private void startHttp() {
         if (settings.packPort <= 0 || !settings.packEnabled) {
             return;
         }
-        try {
-            http = HttpServer.create(new InetSocketAddress(settings.packPort), 0);
-            http.createContext("/pack.zip", this::servePack);
-            http.createContext("/", exchange -> {
-                byte[] body = "FHMTitles resource pack".getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
-                exchange.sendResponseHeaders(200, body.length);
-                try (OutputStream out = exchange.getResponseBody()) {
-                    out.write(body);
-                }
-            });
-            http.setExecutor(Executors.newFixedThreadPool(2, runnable -> {
-                Thread thread = new Thread(runnable, "FHMTitles-Pack-HTTP");
-                thread.setDaemon(true);
-                return thread;
-            }));
-            http.start();
-            plugin.getLogger().info("资源包 HTTP 服务已启动，端口 " + settings.packPort);
-        } catch (IOException e) {
-            plugin.getLogger().warning("资源包 HTTP 服务启动失败（端口 " + settings.packPort + " 可能被占用）: "
-                    + e.getMessage());
-            http = null;
+        String lastError = "";
+        for (int offset = 0; offset <= 10; offset++) {
+            int port = settings.packPort + offset;
+            try {
+                HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
+                server.createContext("/pack.zip", this::servePack);
+                server.createContext("/", exchange -> {
+                    byte[] body = "FHMTitles resource pack".getBytes(StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "text/plain; charset=utf-8");
+                    exchange.sendResponseHeaders(200, body.length);
+                    try (OutputStream out = exchange.getResponseBody()) {
+                        out.write(body);
+                    }
+                });
+                server.setExecutor(Executors.newFixedThreadPool(2, runnable -> {
+                    Thread thread = new Thread(runnable, "FHMTitles-Pack-HTTP");
+                    thread.setDaemon(true);
+                    return thread;
+                }));
+                server.start();
+                this.http = server;
+                this.boundPort = port;
+                this.packUrl = resolveUrl();
+                plugin.getLogger().info("资源包 HTTP 服务已启动，端口 " + port
+                        + (offset > 0 ? "（" + settings.packPort + " 被占用，自动顺延）" : ""));
+                return;
+            } catch (IOException e) {
+                lastError = e.getMessage();
+            }
         }
+        http = null;
+        plugin.getLogger().warning("资源包 HTTP 服务启动失败（端口 " + settings.packPort + "~"
+                + (settings.packPort + 10) + " 都被占用）: " + lastError
+                + "，请在 config.yml 换端口或用 public-url 指向外部地址");
     }
 
     private void servePack(HttpExchange exchange) throws IOException {
