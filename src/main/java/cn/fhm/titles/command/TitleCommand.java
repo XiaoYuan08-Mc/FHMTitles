@@ -43,6 +43,9 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, String[] args) {
         if (args.length == 0) {
             if (sender instanceof Player player) {
+                if (!allow(sender, "fhmtitles.use")) {
+                    return true;
+                }
                 plugin.gui().openMain(player);
             } else {
                 help(sender);
@@ -54,25 +57,37 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             case "help", "?" -> help(sender);
             case "menu", "gui", "open" -> {
                 Player player = asPlayer(sender);
-                if (player == null) {
+                if (player == null || !allow(sender, "fhmtitles.use")) {
                     return true;
                 }
                 plugin.gui().openMain(player);
             }
             case "shop" -> {
                 Player player = asPlayer(sender);
-                if (player == null) {
+                if (player == null || !allow(sender, "fhmtitles.shop")) {
                     return true;
                 }
                 Category category = args.length > 1 ? Category.parse(args[1]) : Category.TEXT;
                 plugin.gui().openShop(player, category == null ? Category.TEXT : category, 0);
             }
-            case "list" -> list(sender, args);
-            case "info" -> info(sender, args);
-            case "equip" -> equip(sender, args);
+            case "list" -> {
+                if (allow(sender, "fhmtitles.use")) {
+                    list(sender, args);
+                }
+            }
+            case "info" -> {
+                if (allow(sender, "fhmtitles.use")) {
+                    info(sender, args);
+                }
+            }
+            case "equip" -> {
+                if (allow(sender, "fhmtitles.equip")) {
+                    equip(sender, args);
+                }
+            }
             case "unequip" -> {
                 Player player = asPlayer(sender);
-                if (player == null) {
+                if (player == null || !allow(sender, "fhmtitles.equip")) {
                     return true;
                 }
                 plugin.titles().unequip(player);
@@ -86,7 +101,11 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             case "create" -> create(sender, args);
             case "delete" -> delete(sender, args);
             case "reload" -> reload(sender);
-            case "toggle" -> toggle(sender, args);
+            case "toggle" -> {
+                if (allow(sender, "fhmtitles.use")) {
+                    toggle(sender, args);
+                }
+            }
             case "pack" -> pack(sender, args);
             case "image" -> image(sender, args);
             default -> help(sender);
@@ -115,6 +134,15 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
             return false;
         }
         return true;
+    }
+
+    /** 普通玩家权限检查（权限在 plugin.yml 里声明，默认 true）。 */
+    private boolean allow(CommandSender sender, String node) {
+        if (sender.hasPermission(node)) {
+            return true;
+        }
+        sender.sendMessage(lang().prefix().append(lang().msg("cmd.no-permission")));
+        return false;
     }
 
     private void list(CommandSender sender, String[] args) {
@@ -230,8 +258,11 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
         if (target == null) {
             return;
         }
-        plugin.titles().revoke(target, args[2]);
-        sender.sendMessage(lang().prefix().append(lang().msg("cmd.taken", "player", target.getName(), "id", args[2])));
+        if (plugin.titles().revoke(target, args[2])) {
+            sender.sendMessage(lang().prefix().append(lang().msg("cmd.taken", "player", target.getName(), "id", args[2])));
+        } else {
+            sender.sendMessage(lang().prefix().append(lang().msg("error.not-owned", "title", args[2])));
+        }
     }
 
     private void card(CommandSender sender, String[] args) {
@@ -425,7 +456,8 @@ public final class TitleCommand implements CommandExecutor, TabCompleter {
         plugin.display().refreshAll();
     }
 
-    private void reload(CommandSender sender) {        if (!admin(sender)) {
+    private void reload(CommandSender sender) {
+        if (!admin(sender)) {
             return;
         }
         plugin.reloadAll();

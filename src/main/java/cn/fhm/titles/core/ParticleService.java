@@ -71,12 +71,20 @@ public final class ParticleService {
         int count = Math.max(1, Math.min(60, title.particleCount));
         double spread = 0.35d;
         Object data = null;
-        if (particle == Particle.DUST || particle.name().contains("DUST")) {
+        if (particle == Particle.DUST) {
             if (color == null) {
                 color = Color.fromRGB(0xFFD966);
             }
             data = new Particle.DustOptions(color, (float) Math.max(0.3d, Math.min(3.0d, size)));
         }
-        player.getWorld().spawnParticle(particle, location, count, spread, 0.2d, spread, 0.02d, data);
+        try {
+            if (data != null) {
+                player.getWorld().spawnParticle(particle, location, count, spread, 0.2d, spread, 0.02d, data);
+            } else {
+                player.getWorld().spawnParticle(particle, location, count, spread, 0.2d, spread, 0.02d);
+            }
+        } catch (Throwable ignored) {
+            // 需要额外数据的粒子（BLOCK / ITEM 等）在不传 data 时会抛异常，直接跳过这一帧
+        }
     }
 }

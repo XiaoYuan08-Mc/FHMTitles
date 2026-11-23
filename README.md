@@ -2,12 +2,13 @@
 
 自研称号插件，编译目标 `paper-api 26.3.build.258-stable`、Java 25，已在 **Purpur 26.3（API 26.3.build.2660-stable）** 实机验证：插件加载、SQLite 建表、称号解析、指令、重载、自动备份全部正常。
 
-- 产物：`build/libs/FHMTitles-1.0.0.jar`
+- 产物：`build/libs/FHMTitles-1.0.2.jar`（当前版本 1.0.2）
 - 源码：`src/main/java/cn/fhm/titles`，配置在 `src/main/resources`
+- 内置 **27 个称号定义**：10 个图片称号（绘梦 / 星辰 / 烈焰 / 幽兰 / 极光 / 花语 / 雷帝 / 至尊 / 夜莺 / 丰饶）+ 17 个文本 / BUFF / 粒子 / RGB 称号，装好即可直接玩
 
 ## 安装
 
-1. 把 `FHMTitles-1.0.0.jar` 丢进服务端 `plugins/`。
+1. 把 `FHMTitles-1.0.2.jar` 丢进服务端 `plugins/`。
 2. 首次启动会自动从 Paper 镜像下载 `sqlite-jdbc` 与 `mysql-connector-j`（放到服务器根目录 `libraries/`），**只需联网一次**；纯离线服务器可预先手动放入同名 jar。
 3. 启动后生成 `plugins/FHMTitles/`：`config.yml`、`titles.yml`、`lang/zh_CN.yml`、`titles.db`、`backUp/`。
 4. `/titles` 打开主界面。注意：插件注册的是 `/titles`（别名 `/cht`、`/称号`），**不占用原版 `/title`**，不会破坏屏幕标题指令。
@@ -18,7 +19,7 @@
 |---|---|---|
 | Vault | 金币购买 | 金币价格不可用，其余支付方式正常 |
 | PlayerPoints | 点券购买 | 点券价格不可用 |
-| PlaceholderAPI | 变量输出/外部变量解析 | 变量扩展不注册 |
+| PlaceholderAPI | 变量输出/外部变量解析 | 变量扩展不注册；称号文本里的 `%papi_xxx%` 原样显示 |
 
 ## 指令
 
@@ -116,7 +117,24 @@ assets/fhmtitles/textures/title/<id>.png        原图
 4. **`required: false` 时先看提示**。客户端会弹“是否加载资源包”，如果玩家点了否，就回退成 `fallback` 文字（默认 `✦[绘]✦`），不是 BUG。
 5. 确认客户端真的拿到了我们的包：`/titles pack` 打印的地址用浏览器打开，应当直接下载 zip，里面能看到 `assets/fhmtitles/font/titles.json`。
 
-## 25 项特性对照| # | 特性 | 实现 |
+## 内置称号一览
+
+| 分类 | 称号 ID | 展示 |
+|---|---|---|
+| 图片 | `glyph` | 绘梦徽章 |
+| 图片 | `img_star` / `img_flame` / `img_orchid` | 星辰 / 烈焰 / 幽兰 |
+| 图片 | `img_aurora` / `img_flower` / `img_thunder` | 极光 / 花语 / 雷帝 |
+| 图片 | `img_supreme` / `img_night` / `img_bounty` | 至尊 / 夜莺 / 丰饶 |
+| 文本 | `novice` / `bard` / `merchant` / `legend` | 新手 / 吟游 / 商贾 / 传说 |
+| BUFF | `guard` / `miner` | 抗性+吸收 / 急迫+夜视 |
+| 粒子 | `storm` / `blossom` / `spirit` / `dragon` | 电火花 / 樱花 / 不死图腾 / 橙色尘 |
+| RGB | `vesper` / `founder` | 暮色流光 / 创世彩虹 |
+
+徽章 PNG 由 `tools/gen_badges.ps1`（System.Drawing 程序化绘制，80×24 透明底圆角胶囊）生成，输出到 `src/main/resources/images/`；想换文案改脚本里的数组重跑即可，也可用 `/titles image <ID> <文件名>` 换成自己的图。
+
+## 25 项特性对照
+
+| # | 特性 | 实现 |
 |---|---|---|
 | 1 | MySQL / SQLite | `storage.type`，同一套 SQL 抽象；SQLite 单连接 + 单线程执行器 |
 | 2 | 按类型打开不同商店 | 主界面 5 个分类入口，`open:shop:<分类>` |
@@ -135,7 +153,7 @@ assets/fhmtitles/textures/title/<id>.png        原图
 | 15 | 商店隐藏已购 | `shop.hide-purchased: true`，买过的称号只对该玩家隐藏 |
 | 16 | 聊天显示开关 | 主界面 / `/titles toggle chat` |
 | 17 | TAB 与头顶开关 | 同上，分别独立 |
-| 18 | 称号 BUFF | 无限时长药水效果，切换即精确移除，掉线/死亡后补挂 |
+| 18 | 称号 BUFF | 无限时长药水效果，只移除本插件加上的那一层，切称号/到期/删定义都会清，掉线重进按当前佩戴重挂 |
 | 19 | 获取消息类型 | `title.acquire-message-type: CHAT / ACTIONBAR / TITLE / NONE` |
 | 20 | 自定义材质 | `icon` + `model`（自定义模型数据） |
 | 21 | 粒子特效 | `particle` 支持普通粒子与染色 DUST |
@@ -148,6 +166,9 @@ assets/fhmtitles/textures/title/<id>.png        原图
 ## 已知边界
 
 - 管理 GUI 目前能改文本、启停、删除；**改价格/天数/材质/粒子**请在 `titles.yml` 改完 `/titles reload`（这是刻意保留的“高级编辑走文件”路线，避免后台输入框堆成表单）。
+- `reload` 能热更称号、语言、显示格式、经济与奖励配置；**改 `storage` 段（换 SQLite/MySQL）必须重启**，连接池只在启动时建立。
+- 称号文本与后缀里的 `%papi_xxx%` 会按玩家实时解析（需要 PlaceholderAPI，未装则原样显示）；`chat-format` 这类格式串里的变量不走 PAPI，避免 `%prefix%` 之类被当成占位符吞掉。
+- BUFF 清理由插件记录“自己加的哪一层”来判断：玩家自己喝的同类型药水不会被摘称号带走；但如果你手动覆盖成无限时长的同类效果，会被判定成插件的效果一并清掉。
 - 图片称号的纵向对齐由 `ascent` / `height` 控制，不同字体缩放档位下观感会有差异，建议在客户端里微调到合适值后固定下来。
 - 头顶称号是 TextDisplay 乘客实体，位置/大小/可见距离在 `config.yml` 的 `display.head` 三项里调；人多时可把 `view-distance` 调到 16～24。
 - 头顶默认两行：`head-format: '%prefix%\n<white>%player%</white>'`——`\n` 是换行，称号自动排到玩家名上一行；`TextDisplay` 本身支持多行，行数再多也照样渲染，只需相应调高 `display.head.y-offset`（默认 0.45，两行时的值，单行可用 0.35）。

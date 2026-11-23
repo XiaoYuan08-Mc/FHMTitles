@@ -8,7 +8,6 @@ public final class PriceEntry {
     public double amount = 100;
     public Material item = Material.DIAMOND;
     public int itemAmount = 1;
-    public String permission = "";
 
     public PriceEntry() {
     }

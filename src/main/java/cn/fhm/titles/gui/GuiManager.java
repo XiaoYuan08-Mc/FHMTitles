@@ -110,12 +110,12 @@ public final class GuiManager {
     }
 
     private void fill(Inventory inventory) {
-        ItemStack filler = filler();
         for (int i = 0; i < inventory.getSize(); i++) {
             ItemStack existing = inventory.getItem(i);
             // 新版 Bukkit 空槽可能返回 AIR 而不是 null，两种都要判
             if (existing == null || existing.getType().isAir()) {
-                inventory.setItem(i, filler);
+                // 每格单独 new 一份，避免多个槽位共享同一个 ItemStack 实例
+                inventory.setItem(i, filler());
             }
         }
     }
@@ -164,7 +164,7 @@ public final class GuiManager {
         if (title.animated) {
             lore.add(lang.msg("lore.rgb"));
         }
-        if (!title.imageGlyph.isEmpty()) {
+        if (title.imageFile != null && !title.imageFile.isEmpty()) {
             lore.add(lang.msg("lore.image"));
         }
         if (!title.lore.isEmpty()) {
@@ -172,9 +172,6 @@ public final class GuiManager {
             for (String line : title.lore) {
                 lore.add(TextUtil.parse(line));
             }
-        }
-        if (shopMode) {
-            lore.add(durationText(title));
         }
         return lore;
     }
@@ -188,6 +185,10 @@ public final class GuiManager {
     // ---------------------------------------------------------------- 主菜单
 
     public void openMain(Player player) {
+        if (!player.hasPermission("fhmtitles.use")) {
+            player.sendMessage(lang.prefix().append(lang.msg("cmd.no-permission")));
+            return;
+        }
         PlayerData data = store.get(player);
         Holder holder = Holder.create(MenuType.MAIN, null, 0, "", 36, lang.msg("menu.main-title"));
         Inventory inventory = holder.getInventory();
@@ -244,6 +245,9 @@ public final class GuiManager {
     // ---------------------------------------------------------------- 商店
 
     public void openShop(Player player, Category category, int page) {
+        if (category == null) {
+            category = Category.TEXT;
+        }
         List<Title> list = new ArrayList<>();
         PlayerData data = store.get(player);
         for (Title title : registry.byTag(category)) {
@@ -503,13 +507,25 @@ public final class GuiManager {
                             openAdmin(player, 0);
                         }
                     }
-                    case "shop" -> openShop(player, Category.parse(parts[2]), 0);
+                    case "shop" -> {
+                        if (parts.length < 3) {
+                            return;
+                        }
+                        if (!player.hasPermission("fhmtitles.shop")) {
+                            player.sendMessage(lang.prefix().append(lang.msg("cmd.no-permission")));
+                            return;
+                        }
+                        openShop(player, Category.parse(parts[2]), 0);
+                    }
                     default -> {
                     }
                 }
             }
             case "page" -> {
-                int page = Integer.parseInt(parts[parts.length - 1]);
+                if (parts.length < 3) {
+                    return;
+                }
+                int page = parseInt(parts[parts.length - 1], 0);
                 switch (parts[1]) {
                     case "shop" -> openShop(player, Category.parse(parts[2]), page);
                     case "owned" -> openOwned(player, "ALL".equals(parts[2]) ? null : Category.parse(parts[2]), page);
@@ -519,6 +535,9 @@ public final class GuiManager {
                 }
             }
             case "buy" -> {
+                if (parts.length < 3 || !player.hasPermission("fhmtitles.shop")) {
+                    return;
+                }
                 Title title = registry.get(parts[1]);
                 if (title == null) {
                     return;
@@ -527,7 +546,7 @@ public final class GuiManager {
                     openConfirm(player, title);
                     return;
                 }
-                int priceIndex = Integer.parseInt(parts[2]);
+                int priceIndex = parseInt(parts[2], -1);
                 if (priceIndex < 0) {
                     titles.grant(player, title.id, title.permanent() ? -1 : title.days, true);
                     player.closeInventory();
@@ -538,12 +557,23 @@ public final class GuiManager {
                 }
             }
             case "equip" -> {
+                if (parts.length < 2) {
+                    return;
+                }
+                if (!player.hasPermission("fhmtitles.equip")) {
+                    player.sendMessage(lang.prefix().append(lang.msg("cmd.no-permission")));
+                    return;
+                }
                 if (titles.equip(player, parts[1], true)) {
                     player.closeInventory();
                     openOwned(player, null, 0);
                 }
             }
             case "unequip" -> {
+                if (!player.hasPermission("fhmtitles.equip")) {
+                    player.sendMessage(lang.prefix().append(lang.msg("cmd.no-permission")));
+                    return;
+                }
                 titles.unequip(player);
                 openOwned(player, null, 0);
             }
@@ -564,6 +594,14 @@ public final class GuiManager {
             case "admin" -> handleAdminAction(player, event, parts);
             default -> {
             }
+        }
+    }
+
+    private int parseInt(String raw, int fallback) {
+        try {
+            return Integer.parseInt(raw);
+        } catch (NumberFormatException e) {
+            return fallback;
         }
     }
 

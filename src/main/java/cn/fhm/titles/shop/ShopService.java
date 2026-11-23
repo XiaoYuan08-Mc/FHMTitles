@@ -174,6 +174,9 @@ public final class ShopService {
     }
 
     private boolean takeItems(Player player, Material material, int amount) {
+        if (amount <= 0) {
+            return true;
+        }
         if (countItem(player, material) < amount) {
             return false;
         }
@@ -185,12 +188,16 @@ public final class ShopService {
                 continue;
             }
             int take = Math.min(remaining, stack.getAmount());
-            stack.setAmount(stack.getAmount() - take);
-            if (stack.getAmount() <= 0) {
+            int left = stack.getAmount() - take;
+            if (left <= 0) {
                 player.getInventory().setItem(i, null);
+            } else {
+                stack.setAmount(left);
+                player.getInventory().setItem(i, stack);
             }
             remaining -= take;
         }
+        player.updateInventory();
         return remaining == 0;
     }
 }

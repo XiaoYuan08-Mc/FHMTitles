@@ -5,18 +5,19 @@ import net.kyori.adventure.text.serializer.plain.PlainTextComponentSerializer;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 
 /**
  * 后台 GUI 的聊天输入框：管理员点按钮后直接在聊天栏输入新值。
+ * 主线程 request 与 AsyncChatEvent 线程 remove 并发，所以用 ConcurrentHashMap。
  */
 public final class InputManager {
 
     private final JavaPlugin plugin;
-    private final Map<UUID, Consumer<String>> pending = new HashMap<>();
+    private final Map<UUID, Consumer<String>> pending = new ConcurrentHashMap<>();
 
     public InputManager(JavaPlugin plugin) {
         this.plugin = plugin;

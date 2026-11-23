@@ -31,6 +31,7 @@ public final class RewardService {
     private final DataStore store;
     private final TitleService titles;
     private final List<Reward> rewards = new ArrayList<>();
+    private final java.util.concurrent.atomic.AtomicBoolean checking = new java.util.concurrent.atomic.AtomicBoolean();
 
     public RewardService(JavaPlugin plugin, Lang lang, TitleRegistry registry, DataStore store, TitleService titles) {
         this.plugin = plugin;
@@ -54,8 +55,11 @@ public final class RewardService {
                     }
                     int count = parseInt(key, 0);
                     if (count > 0) {
-                        rewards.add(new Reward(count,
-                                RewardType.valueOf(entry.getString("type", "TITLE").toUpperCase()),
+                        RewardType type = parseType(entry.getString("type", "TITLE"));
+                        if (type == null) {
+                            continue;
+                        }
+                        rewards.add(new Reward(count, type,
                                 entry.getString("value", ""),
                                 entry.getLong("amount", 0)));
                     }
@@ -69,9 +73,12 @@ public final class RewardService {
                         continue;
                     }
                     Object typeRaw = map.get("type");
-                    String type = (typeRaw == null ? "TITLE" : String.valueOf(typeRaw)).toUpperCase();
+                    RewardType type = parseType(typeRaw == null ? "TITLE" : String.valueOf(typeRaw));
+                    if (type == null) {
+                        continue;
+                    }
                     Object valueRaw = map.get("value");
-                    rewards.add(new Reward(count, RewardType.valueOf(type),
+                    rewards.add(new Reward(count, type,
                             valueRaw == null ? "" : String.valueOf(valueRaw),
                             map.get("amount") instanceof Number n ? n.longValue() : 0));
                 }
@@ -95,6 +102,18 @@ public final class RewardService {
     }
 
     public void check(Player player) {
+        // grant() 内部会回调 check()，这里加个闸防止重入导致提示乱序
+        if (!checking.compareAndSet(false, true)) {
+            return;
+        }
+        try {
+            doCheck(player);
+        } finally {
+            checking.set(false);
+        }
+    }
+
+    private void doCheck(Player player) {
         PlayerData data = store.get(player);
         int owned = ownedCount(data);
         for (Reward reward : rewards) {
@@ -130,6 +149,16 @@ public final class RewardService {
             return Integer.parseInt(String.valueOf(value));
         } catch (Exception e) {
             return fallback;
+        }
+    }
+
+    /** 配置写错时不抛异常，只跳过这一条奖励。 */
+    private RewardType parseType(String raw) {
+        try {
+            return RewardType.valueOf(raw.trim().toUpperCase(java.util.Locale.ROOT));
+        } catch (Exception e) {
+            plugin.getLogger().warning("[数量奖励] 未知 type: " + raw + "（只能是 TITLE 或 COIN），已跳过");
+            return null;
         }
     }
 }

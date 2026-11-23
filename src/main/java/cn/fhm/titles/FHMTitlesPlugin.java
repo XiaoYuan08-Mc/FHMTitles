@@ -128,6 +128,7 @@ public final class FHMTitlesPlugin extends JavaPlugin {
         gui = new GuiManager(this, settings, lang, registry, store, titles, shop, input);
         cards = new CardFactory(this, settings, lang, registry, store, titles);
         papi = new PapiHook();
+        display.setPapi(papi);
 
         PluginCommand command = getCommand("titles");
         if (command != null) {
@@ -181,7 +182,8 @@ public final class FHMTitlesPlugin extends JavaPlugin {
     public void reloadAll() {
         settings.load();
         lang.load(settings.language);
-        registry.load();
+        // registry.load() 与在线玩家的 BUFF / 显示刷新都在 titles.reloadAll() 里
+        titles.reloadAll();
         titles.rewards().load();
         try {
             images.reload();
@@ -189,9 +191,6 @@ public final class FHMTitlesPlugin extends JavaPlugin {
             getLogger().warning("重建资源包失败: " + t.getMessage());
         }
         display.refreshAll();
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            buff.apply(player, display.equippedTitle(store.get(player)));
-        }
     }
 
     @Override

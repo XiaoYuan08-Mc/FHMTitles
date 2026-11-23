@@ -13,6 +13,7 @@ import net.kyori.adventure.text.Component;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
@@ -94,6 +95,11 @@ public final class CardFactory {
 
     /** 使用称号卡，返回是否消耗成功。 */
     public boolean use(Player player, ItemStack stack) {
+        return use(player, stack, EquipmentSlot.HAND);
+    }
+
+    /** 使用称号卡；hand 指明卡在副手还是主手，消耗时扣对应手上的那张。 */
+    public boolean use(Player player, ItemStack stack, EquipmentSlot hand) {
         if (!isCard(stack)) {
             return false;
         }
@@ -125,12 +131,26 @@ public final class CardFactory {
         if (!consumed) {
             return false;
         }
-        int amount = stack.getAmount();
+        boolean offhand = hand == EquipmentSlot.OFF_HAND;
+        ItemStack held = offhand
+                ? player.getInventory().getItemInOffHand()
+                : player.getInventory().getItemInMainHand();
+        int amount = held == null || held.getType().isAir() ? 0 : held.getAmount();
         if (amount <= 1) {
-            player.getInventory().setItemInMainHand(null);
+            if (offhand) {
+                player.getInventory().setItemInOffHand(null);
+            } else {
+                player.getInventory().setItemInMainHand(null);
+            }
         } else {
-            stack.setAmount(amount - 1);
+            held.setAmount(amount - 1);
+            if (offhand) {
+                player.getInventory().setItemInOffHand(held);
+            } else {
+                player.getInventory().setItemInMainHand(held);
+            }
         }
+        player.updateInventory();
         return true;
     }
 

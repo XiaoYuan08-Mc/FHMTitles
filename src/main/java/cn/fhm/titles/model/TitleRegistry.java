@@ -46,7 +46,9 @@ public final class TitleRegistry {
             if (section == null) {
                 continue;
             }
-            titles.put(key, Title.load(key, section));
+            // 统一用小写 ID 作键，避免 titles.yml 里写了大写导致 get() 找不到
+            String id = key.toLowerCase(java.util.Locale.ROOT);
+            titles.put(id, Title.load(id, section));
         }
     }
 

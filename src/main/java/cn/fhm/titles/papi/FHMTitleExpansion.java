@@ -31,7 +31,7 @@ public final class FHMTitleExpansion extends PlaceholderExpansion {
 
     @Override
     public String getVersion() {
-        return "1.0.0";
+        return plugin.getPluginMeta().getVersion();
     }
 
     @Override

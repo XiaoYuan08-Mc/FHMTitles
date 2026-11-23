@@ -17,7 +17,8 @@ public final class CardListener implements Listener {
 
     @EventHandler
     public void onInteract(PlayerInteractEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND) {
+        EquipmentSlot hand = event.getHand();
+        if (hand != EquipmentSlot.HAND && hand != EquipmentSlot.OFF_HAND) {
             return;
         }
         if (event.getAction() != Action.RIGHT_CLICK_AIR && event.getAction() != Action.RIGHT_CLICK_BLOCK) {
@@ -27,6 +28,6 @@ public final class CardListener implements Listener {
             return;
         }
         event.setCancelled(true);
-        cards.use(event.getPlayer(), event.getItem());
+        cards.use(event.getPlayer(), event.getItem(), hand);
     }
 }

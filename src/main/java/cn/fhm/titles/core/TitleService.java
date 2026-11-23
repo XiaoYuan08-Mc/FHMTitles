@@ -63,6 +63,10 @@ public final class TitleService {
             player.sendMessage(lang.prefix().append(lang.msg("error.title-not-found", "id", id)));
             return false;
         }
+        if (!title.enabled) {
+            player.sendMessage(lang.prefix().append(lang.msg("error.title-disabled", "id", title.id)));
+            return false;
+        }
         if (!data.ownedValid(title.id)) {
             player.sendMessage(lang.prefix().append(lang.msg("error.not-owned", "title", title.id)));
             return false;
@@ -143,7 +147,12 @@ public final class TitleService {
         if (!data.owned.containsKey(id)) {
             return false;
         }
+        boolean wasEquipped = data.equipped.equals(id);
+        Title previous = wasEquipped ? registry.get(id) : null;
         data.revoke(id);
+        if (wasEquipped) {
+            buff.clear(player, previous);
+        }
         display.refresh(player);
         store.markDirty(player.getUniqueId());
         store.save(player.getUniqueId());
@@ -160,15 +169,20 @@ public final class TitleService {
         PlayerData data = store.get(player);
         data.name = player.getName();
         cleanupExpired(player, data, false);
-        display.refresh(player);
+        // 上一次下线时残留的称号 BUFF 先按当前佩戴情况清干净，再补上
         Title title = display.equippedTitle(data);
-        buff.apply(player, title);
+        buff.stripStale(player, title);
+        display.refresh(player);
+        if (title != null) {
+            buff.apply(player, title);
+        }
         rewards.check(player);
     }
 
     public void onQuit(Player player) {
         store.save(player.getUniqueId());
         display.onQuit(player);
+        buff.forget(player);
     }
 
     /** 到期检查：每 expireCheckSeconds 执行一次。 */
@@ -184,17 +198,22 @@ public final class TitleService {
 
     private void cleanupExpired(Player player, PlayerData data, boolean notify) {
         boolean changed = false;
+        Title lost = null;
         for (String id : new java.util.ArrayList<>(data.owned.keySet())) {
             if (!data.ownedValid(id)) {
                 data.owned.remove(id);
                 if (data.equipped.equals(id)) {
                     data.equipped = "";
+                    lost = registry.get(id);
                 }
                 changed = true;
                 if (notify) {
                     player.sendMessage(lang.prefix().append(lang.msg("title.expired", "title", id)));
                 }
             }
+        }
+        if (lost != null) {
+            buff.clear(player, lost);
         }
         if (changed) {
             store.markDirty(player.getUniqueId());
@@ -205,6 +224,7 @@ public final class TitleService {
 
     /** 删除称号定义时的联动清理（玩家仓库 / 已购记录 / 佩戴状态）。 */
     public void deleteDefinition(String id) {
+        Title removed = registry.get(id);
         registry.remove(id);
         registry.save();
         for (PlayerData data : store.all()) {
@@ -215,13 +235,21 @@ public final class TitleService {
             if (data.purchased.remove(id)) {
                 changed = true;
             }
-            if (data.equipped.equals(id)) {
+            boolean wasEquipped = data.equipped.equals(id);
+            if (wasEquipped) {
                 data.equipped = "";
                 changed = true;
             }
             if (changed) {
                 store.markDirty(data.uuid);
                 store.save(data.uuid);
+            }
+            if (wasEquipped) {
+                Player online = Bukkit.getPlayer(data.uuid);
+                if (online != null) {
+                    buff.clearTypes(online, buff.parseEffects(removed));
+                    display.refresh(online);
+                }
             }
         }
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -233,9 +261,15 @@ public final class TitleService {
 
     public void reloadAll() {
         registry.load();
-        display.refreshAll();
         for (Player player : Bukkit.getOnlinePlayers()) {
-            buff.apply(player, display.equippedTitle(store.get(player)));
+            PlayerData data = store.get(player);
+            Title title = display.equippedTitle(data);
+            buff.stripStale(player, title);
+            display.refresh(player);
+            if (title != null) {
+                buff.ensure(player, data);
+            }
         }
+        display.refreshAll();
     }
 }

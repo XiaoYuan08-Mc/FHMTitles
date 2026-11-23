@@ -38,6 +38,8 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipOutputStream;
 
@@ -57,6 +59,14 @@ public final class ImageTitleService {
     public static final String FONT_NAMESPACE = "fhmtitles";
     public static final String FONT_NAME = "titles";
     public static final Key FONT_KEY = Key.key(FONT_NAMESPACE + ":" + FONT_NAME);
+
+    /** jar 内置示例图（非 jar 部署时的兜底清单）。 */
+    private static final String[] BUNDLED_IMAGES = {
+            "glyph.png",
+            "badge_star.png", "badge_flame.png", "badge_orchid.png", "badge_aurora.png",
+            "badge_flower.png", "badge_thunder.png", "badge_supreme.png", "badge_night.png",
+            "badge_bounty.png"
+    };
     /** 资源包固定 UUID：用来区分客户端返回的状态到底属于哪个插件的包。 */
     public static final UUID PACK_ID = UUID.nameUUIDFromBytes("FHMTitles:resourcepack".getBytes(StandardCharsets.UTF_8));
 
@@ -308,10 +318,13 @@ public final class ImageTitleService {
             if (providers.length() > 0) {
                 providers.append(",\n");
             }
+            // height / ascent 必须落在合法区间，否则客户端会丢弃整个字体
+            int box = Math.min(64, Math.max(1, title.imageHeight));
+            int ascent = Math.min(box, Math.max(0, title.imageAscent));
             providers.append("  {\"type\":\"bitmap\",\"file\":\"").append(FONT_NAMESPACE)
                     .append(":title/").append(title.id).append(".png\"")
-                    .append(",\"ascent\":").append(title.imageAscent)
-                    .append(",\"height\":").append(title.imageHeight)
+                    .append(",\"ascent\":").append(ascent)
+                    .append(",\"height\":").append(box)
                     .append(",\"chars\":[\"").append(escapeCodes(glyphs.get(title.id))).append("\"]}");
         }
         String fontJson = "{\"providers\":[\n" + providers + "\n]}\n";
@@ -488,12 +501,37 @@ public final class ImageTitleService {
         if (title == null) {
             return "找不到称号 " + titleId;
         }
+        if (file == null || file.isBlank()) {
+            return "图片文件名不能为空";
+        }
         File image = new File(imagesDir, file);
         if (!image.isFile()) {
             return "images/" + file + " 不存在";
         }
+        BufferedImage buffered;
+        try {
+            buffered = ImageIO.read(image);
+        } catch (IOException e) {
+            return "读取图片失败: " + e.getMessage();
+        }
+        if (buffered == null) {
+            return file + " 不是有效的图片文件";
+        }
+        if (glyphCount < 1 || glyphCount > 64) {
+            return "字形数必须在 1~64 之间（当前 " + glyphCount + "）";
+        }
+        if (height < 1 || height > 64) {
+            return "字形高度必须在 1~64 像素之间（当前 " + height + "，常用 14~18）";
+        }
+        if (ascent < 0 || ascent > height) {
+            return "ascent 必须在 0~" + height + " 之间（当前 " + ascent + "，常用 height-2）";
+        }
+        int count = glyphCount;
+        if (buffered.getWidth() % count != 0) {
+            return "图片宽度 " + buffered.getWidth() + " 不能被字形数 " + count + " 整除";
+        }
         title.imageFile = file;
-        title.imageGlyphs = Math.max(1, glyphCount);
+        title.imageGlyphs = count;
         title.imageHeight = height;
         title.imageAscent = ascent;
         if (!title.tags.contains(cn.fhm.titles.model.Category.IMAGE)) {
@@ -548,17 +586,55 @@ public final class ImageTitleService {
         return sb.toString();
     }
 
+    /**
+     * 把 jar 内置的示例图（images/ 下所有 png）释放到插件目录。
+     * 已存在的文件不覆盖，方便服主自己替换同名图。
+     */
     private void saveDemoImage() {
-        File demo = new File(imagesDir, "glyph.png");
-        if (demo.isFile()) {
+        File source = null;
+        try {
+            source = new File(plugin.getClass().getProtectionDomain().getCodeSource().getLocation().toURI());
+        } catch (Exception ignored) {
+            source = null;
+        }
+        if (source != null && source.isFile()) {
+            try (JarFile jar = new JarFile(source)) {
+                var entries = jar.entries();
+                while (entries.hasMoreElements()) {
+                    JarEntry entry = entries.nextElement();
+                    String name = entry.getName();
+                    if (entry.isDirectory() || !name.startsWith("images/")
+                            || !name.toLowerCase(Locale.ROOT).endsWith(".png")) {
+                        continue;
+                    }
+                    File target = new File(imagesDir, name.substring("images/".length()));
+                    if (target.isFile()) {
+                        continue;
+                    }
+                    try (InputStream in = jar.getInputStream(entry)) {
+                        Files.createDirectories(target.toPath().getParent());
+                        Files.copy(in, target.toPath());
+                    }
+                }
+            } catch (IOException e) {
+                plugin.getLogger().warning("释放示例图片失败: " + e.getMessage());
+            }
             return;
         }
-        try (InputStream in = plugin.getResource("images/glyph.png")) {
-            if (in != null) {
-                Files.copy(in, demo.toPath());
+        // 非 jar 部署（IDE 里直接跑）时退回逐个读取
+        for (String name : BUNDLED_IMAGES) {
+            File target = new File(imagesDir, name);
+            if (target.isFile()) {
+                continue;
             }
-        } catch (IOException e) {
-            plugin.getLogger().warning("释放示例图片失败: " + e.getMessage());
+            try (InputStream in = plugin.getResource("images/" + name)) {
+                if (in != null) {
+                    Files.createDirectories(target.toPath().getParent());
+                    Files.copy(in, target.toPath());
+                }
+            } catch (IOException e) {
+                plugin.getLogger().warning("释放示例图片 " + name + " 失败: " + e.getMessage());
+            }
         }
     }
 

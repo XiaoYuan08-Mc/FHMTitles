@@ -42,6 +42,7 @@ public final class DisplayService {
     private final Map<UUID, Render> cache = new ConcurrentHashMap<>();
     private final Map<UUID, TextDisplay> heads = new ConcurrentHashMap<>();
     private cn.fhm.titles.resource.ImageTitleService images;
+    private cn.fhm.titles.hook.PapiHook papi;
     private double phase = 0;
 
     public DisplayService(JavaPlugin plugin, Settings settings, Lang lang, TitleRegistry registry, DataStore store) {
@@ -59,6 +60,18 @@ public final class DisplayService {
 
     public void setImages(cn.fhm.titles.resource.ImageTitleService images) {
         this.images = images;
+    }
+
+    public void setPapi(cn.fhm.titles.hook.PapiHook papi) {
+        this.papi = papi;
+    }
+
+    /** 解析称号文本 / 后缀里的 %papi_xxx% 占位符（未装 PlaceholderAPI 时原样返回）。 */
+    private String resolve(Player player, String raw) {
+        if (papi == null || player == null || raw == null || raw.isEmpty()) {
+            return raw;
+        }
+        return papi.apply(player, raw);
     }
 
     public Title equippedTitle(PlayerData data) {
@@ -83,7 +96,8 @@ public final class DisplayService {
 
     public Render render(Title title, Player player) {
         Component titleComponent = titleComponent(title, player);
-        Component suffix = title.suffix == null || title.suffix.isEmpty() ? Component.empty() : TextUtil.parse(title.suffix);
+        Component suffix = title.suffix == null || title.suffix.isEmpty()
+                ? Component.empty() : TextUtil.parse(resolve(player, title.suffix));
         Map<String, Component> tokens = new HashMap<>();
         tokens.put("prefix", titleComponent);
         tokens.put("title", titleComponent);
@@ -104,7 +118,7 @@ public final class DisplayService {
      * player 为 null 表示不检测资源包状态（用于预览）。
      */
     public Component titleComponent(Title title, Player player) {
-        Component text = textComponent(title);
+        Component text = textComponent(title, player);
         if (images == null || !images.hasImage(title)) {
             return text;
         }
@@ -125,15 +139,16 @@ public final class DisplayService {
         return image.append(gap).append(text);
     }
 
-    private Component textComponent(Title title) {
-        if (title.text == null || title.text.isEmpty()) {
+    private Component textComponent(Title title, Player player) {
+        String raw = resolve(player, title.text);
+        if (raw == null || raw.isEmpty()) {
             return Component.empty();
         }
         if (!title.animated) {
-            return TextUtil.parse(title.text);
+            return TextUtil.parse(raw);
         }
         List<String> palette = title.palette == null || title.palette.isEmpty() ? settings.defaultPalette : title.palette;
-        String plain = TextUtil.plain(TextUtil.parse(title.text));
+        String plain = TextUtil.plain(TextUtil.parse(raw));
         return TextUtil.parse(TextUtil.animatedGradient(plain, palette, phase));
     }
 
