@@ -26,10 +26,10 @@ public final class Settings {
 
     public String chatFormat = "%prefix%<white>%player%</white>%suffix%<dark_gray> » </dark_gray><gray>%message%</gray>";
     public String tabFormat = "%prefix%<white>%player%</white>%suffix%";
-    public String headFormat = "%prefix%";
+    public String headFormat = "%prefix%\\n<white>%player%</white>";
     public boolean headEnabled = true;
     public double headScale = 0.65d;
-    public double headYOffset = 0.35d;
+    public double headYOffset = 0.45d;
     public int headViewDistance = 32;
     public boolean tabEnabled = true;
     public boolean chatEnabled = true;
@@ -89,7 +89,7 @@ public final class Settings {
         headFormat = c.getString("display.head-format", headFormat);
         headEnabled = c.getBoolean("display.head.enabled", true);
         headScale = c.getDouble("display.head.scale", 0.65d);
-        headYOffset = c.getDouble("display.head.y-offset", 0.35d);
+        headYOffset = c.getDouble("display.head.y-offset", 0.45d);
         headViewDistance = c.getInt("display.head.view-distance", 32);
         tabEnabled = c.getBoolean("display.tab-enabled", true);
         chatEnabled = c.getBoolean("display.chat-enabled", true);

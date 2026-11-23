@@ -44,6 +44,8 @@ public final class TextUtil {
                 builder.resolver(TagResolver.resolver(entry.getKey(), Tag.selfClosingInserting(entry.getValue())));
             }
         }
+        // 配置里写 \n 表示换行（头顶两行：称号在上、名字在下）
+        replaced = replaced.replace("\\n", "\n");
         return MM.deserialize(replaced, builder.build()).decoration(TextDecoration.ITALIC, false);
     }
 

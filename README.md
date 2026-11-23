@@ -150,6 +150,7 @@ assets/fhmtitles/textures/title/<id>.png        原图
 - 管理 GUI 目前能改文本、启停、删除；**改价格/天数/材质/粒子**请在 `titles.yml` 改完 `/titles reload`（这是刻意保留的“高级编辑走文件”路线，避免后台输入框堆成表单）。
 - 图片称号的纵向对齐由 `ascent` / `height` 控制，不同字体缩放档位下观感会有差异，建议在客户端里微调到合适值后固定下来。
 - 头顶称号是 TextDisplay 乘客实体，位置/大小/可见距离在 `config.yml` 的 `display.head` 三项里调；人多时可把 `view-distance` 调到 16～24。
+- 头顶默认两行：`head-format: '%prefix%\n<white>%player%</white>'`——`\n` 是换行，称号自动排到玩家名上一行；`TextDisplay` 本身支持多行，行数再多也照样渲染，只需相应调高 `display.head.y-offset`（默认 0.45，两行时的值，单行可用 0.35）。
 - Vault 与 PlayerPoints 走反射桥接，未装时相关价格直接不可购买并提示，不会抛异常。
 
 ## 二次开发

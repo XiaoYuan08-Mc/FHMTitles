@@ -23,13 +23,15 @@ display:
   # %prefix% %suffix% %player% %message% 四个变量可在格式里任意使用
   chat-format: "%prefix%<white>%player%</white>%suffix%<dark_gray> » </dark_gray><gray>%message%</gray>"
   tab-format: "%prefix%<white>%player%</white>%suffix%"
-  head-format: "%prefix%<white>%player%</white>"
+  # 头顶格式：\n 是换行，默认称号在第一行、玩家名在第二行（称号在名字上面）
+  head-format: '%prefix%\n<white>%player%</white>'
   tab-enabled: true
   chat-enabled: true
   head:
     enabled: true
     scale: 0.65
-    y-offset: 0.35
+    # 两行时整体往上抬一点；想再高/再低就调这个
+    y-offset: 0.45
     # 头顶称号可见距离（格），人多时靠这个降负载
     view-distance: 32
   # RGB 流光动画间隔（tick），越小越顺滑越吃性能
