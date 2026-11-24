@@ -63,6 +63,7 @@ menu.price-button: "<white>使用此方式购买</white>"
 menu.rewards-title: "<black>称号数量奖励</black>"
 
 shop.unavailable: "<red>该称号当前不可购买</red>"
+shop.already-owned: "<yellow>你已经永久拥有该称号</yellow>"
 shop.bought: "<green>购买成功 </green>%title%"
 
 price.money: "<gold>%amount% 金币</gold>"

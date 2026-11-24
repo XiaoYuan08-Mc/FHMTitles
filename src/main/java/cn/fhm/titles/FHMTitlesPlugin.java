@@ -154,7 +154,7 @@ public final class FHMTitlesPlugin extends JavaPlugin {
         getServer().getPluginManager().registerEvents(new CardListener(cards), this);
         getServer().getPluginManager().registerEvents(new cn.fhm.titles.listener.ResourcePackListener(this), this);
 
-        // flush-seconds = 0 时 markDirty 会逐次立即写；这里仍留 1 秒兜底，
+        // flush-seconds = 0 时 markDirty 会逐次立即写；这里仍留 1 秒重试，
         // 只处理写失败被回填成脏的行，平时 dirty 为空，检查成本可以忽略
         long flushTicks = Math.max(1, settings.flushSeconds) * 20L;
         flushTask = Bukkit.getScheduler().runTaskTimer(this, store::flushDirty, flushTicks, flushTicks);

@@ -64,7 +64,7 @@ public final class ImageTitleService {
     public static final String FONT_NAME = "titles";
     public static final Key FONT_KEY = Key.key(FONT_NAMESPACE + ":" + FONT_NAME);
 
-    /** jar 内置示例图（非 jar 部署时的兜底清单）。 */
+    /** jar 内置示例图（非 jar 部署时的备用清单）。 */
     private static final String[] BUNDLED_IMAGES = {
             "icon_glyph.png",
             "icon_star.png", "icon_flame.png", "icon_orchid.png", "icon_aurora.png",
@@ -416,7 +416,7 @@ public final class ImageTitleService {
         }
         String host = Bukkit.getIp();
         if (host == null || host.isBlank() || "0.0.0.0".equals(host)) {
-            // 以前兜底写死 127.0.0.1，外网玩家拿到这个地址根本下不动包
+            // 以前固定写死 127.0.0.1，外网玩家拿到这个地址根本下不动包
             host = localAddress();
         }
         return "http://" + host + ":" + port + "/pack.zip";

@@ -331,7 +331,11 @@ public final class DisplayService {
                         new Vector3f((float) settings.headScale, (float) settings.headScale, (float) settings.headScale),
                         new Quaternionf()));
             });
-            player.addPassenger(display);
+            if (!player.addPassenger(display)) {
+                display.remove();
+                plugin.getLogger().warning("头顶称号挂载失败（玩家已有乘客）: " + player.getName());
+                return null;
+            }
             heads.put(player.getUniqueId(), display);
             return display;
         } catch (Exception e) {

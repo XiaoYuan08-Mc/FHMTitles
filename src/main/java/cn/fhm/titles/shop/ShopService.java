@@ -105,6 +105,10 @@ public final class ShopService {
             player.sendMessage(lang.prefix().append(lang.msg("error.no-permission-title", "title", title.id)));
             return false;
         }
+        if (store.get(player).ownedPermanent(title.id)) {
+            player.sendMessage(lang.prefix().append(lang.msg("shop.already-owned")));
+            return false;
+        }
         PriceEntry entry = priceIndex < 0 || priceIndex >= title.prices.size() ? null : title.prices.get(priceIndex);
         if (entry != null) {
             if (!pay(player, entry)) {

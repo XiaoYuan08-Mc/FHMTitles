@@ -111,7 +111,7 @@ public final class GuiManager {
 
     /**
      * 老资源包用 custom model data 选图标，目前没有等价的非过时写法（item_model 需要资源包提供
-     * items/*.json，会让现有材质包失效），所以统一在这里收口并抑制告警，等换包时再迁。
+     * items/*.json，会让现有材质包失效），所以统一在这里集中处理并抑制告警，等换包时再迁。
      */
     @SuppressWarnings("deprecation")
     private void applyModel(ItemStack stack, int model) {

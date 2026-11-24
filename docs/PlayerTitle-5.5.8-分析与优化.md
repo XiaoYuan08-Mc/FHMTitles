@@ -23,7 +23,7 @@
 强项：
 
 - 图片称号 + 资源包分发（HTTP 服务、sha1 缓存、失败回退）是参考插件 free 版没有的；
-- MiniMessage 全链路、SQLite/MySQL 双端、称号卡与随机卡、按数量发奖励、完整 GUI 与指令都已经具备；
+- MiniMessage 完整流程、SQLite/MySQL 双端、称号卡与随机卡、按数量发奖励、完整 GUI 与指令都已经具备；
 - 佩戴状态本来就有 `Render` 缓存，聊天路径不查库。
 
 短板：
@@ -46,8 +46,8 @@
 | `listener/ChatListener` | 每条消息只解析一次 `chat-format`，消息本体作为槽按 viewer 替换 | N 个接收者从 N 次解析降到 1 次 |
 | `core/ParticleService` | 只读 `title.particleSpec`；全库没有粒子称号时整轮跳过 | 粒子周期无字符串分配，空库时零开销 |
 | `core/BuffService` | 进服清残留改用「BUFF 类型 → 等级」索引，按称号库版本号失效重建 | 每个玩家进服从 O(全库 × BUFF 条数) 降到 O(索引条目) |
-| `core/BuffService` | 摘效果收紧为「无限时长 + 等级与称号声明一致」，并记录本插件加过的等级 | 插件重载后也不会误删玩家自己喝的同类型药水 |
-| `core/BuffService`、`PlayerListener` | 新增 `title.buff-disabled-worlds`，换世界 / 重生时 `resync`：先摘本插件的效果，再按新世界策略补回 | 世界禁用生效，跨世界不再残留 BUFF |
+| `core/BuffService` | 摘效果收紧为「无限时长 + 等级与称号声明一致」，并记录插件加过的等级 | 插件重载后也不会误删玩家自己喝的同类型药水 |
+| `core/BuffService`、`PlayerListener` | 新增 `title.buff-disabled-worlds`，换世界 / 重生时 `resync`：先摘插件的效果，再按新世界策略补回 | 世界禁用生效，跨世界不再残留 BUFF |
 | `storage/DataStore` | 新增 `storage.flush-seconds`：只有切换佩戴 / 显示开关这类高频改动攒批；发放、回收、购买、到期、领奖、下线仍然立即写；备份前先把脏行刷进库；设为 0 则高频改动也逐次立即写 | 连续切换称号从「每次一条 SQL」变成「一个周期一条批量 SQL」，关键数据又不延迟 |
 | `storage/Database` | 单连接访问全部串行化；写失败重建连接并重试一次；新增批量 upsert；失败的行回填成脏留到下一轮；关服先排空队列再写最后一批 | MySQL 掉线不再静默丢档；关服不会出现旧快照覆盖新数据 |
 | 资源与元数据 | `config.yml` 新增三个键、`plugin.yml` 新增 `fhmtitles.buff.bypass-world`、版本 1.2.0 | 可配置、可授权 |

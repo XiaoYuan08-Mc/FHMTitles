@@ -44,7 +44,7 @@ public final class DataStore {
         PlayerData data = get(player.getUniqueId());
         String name = player.getName();
         if (!name.equals(data.name)) {
-            // 改名后离线按名字查找会找不到人，顺手标脏让下一轮写盘更新
+            // 改名后离线按名字查找会找不到人，同时标脏让下一轮写盘更新
             data.name = name;
             markDirty(data.uuid);
         }

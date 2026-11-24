@@ -220,7 +220,7 @@ public final class TitleService {
 
     /**
      * 重生 / 换世界后重新对齐 BUFF 与显示。
-     * 先按当前佩戴的称号把本插件加的效果摘干净，再按新世界策略决定要不要补回来。
+     * 先按当前佩戴的称号把插件加的效果摘干净，再按新世界策略决定要不要补回来。
      */
     public void resync(Player player) {
         PlayerData data = store.get(player);
@@ -314,7 +314,7 @@ public final class TitleService {
 
     /**
      * 称号定义的可展示 / 可用状态变化后，重新对齐所有在线玩家：
-     * 先按「当前还能不能佩戴」摘掉本插件的 BUFF，再刷新三处显示并补回。
+     * 先按「当前还能不能佩戴」摘掉插件的 BUFF，再刷新三处显示并补回。
      */
     public void refreshPlayers() {
         for (Player player : Bukkit.getOnlinePlayers()) {

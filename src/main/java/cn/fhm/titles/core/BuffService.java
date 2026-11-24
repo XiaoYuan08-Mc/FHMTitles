@@ -18,7 +18,7 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * 称号 BUFF：佩戴期间维持无限时长药水效果，摘下 / 切换 / 到期 / 删定义时只移除本插件加上的那一层，
+ * 称号 BUFF：佩戴期间维持无限时长药水效果，摘下 / 切换 / 到期 / 删定义时只移除插件加上的那一层，
  * 不会连带删掉玩家自己喝的同类型药水。
  *
  * 1.2.0 的两处改动：
@@ -34,7 +34,7 @@ public final class BuffService {
     private final TitleRegistry registry;
     private final Settings settings;
 
-    /** 玩家 -> (效果类型 -> 本插件加上的等级)，用来判断"这层效果是不是我们加的"。 */
+    /** 玩家 -> (效果类型 -> 插件加上的等级)，用来判断"这层效果是不是我们加的"。 */
     private final Map<UUID, Map<PotionEffectType, Integer>> applied = new ConcurrentHashMap<>();
 
     private volatile int indexVersion = -1;
@@ -84,7 +84,7 @@ public final class BuffService {
         if ((previous == null || previous.potionBuffs.isEmpty()) && (own == null || own.isEmpty())) {
             return;
         }
-        // 旧称号声明过的类型 + 本插件记录过的类型，两边都清一遍；
+        // 旧称号声明过的类型 + 插件记录过的类型，两边都清一遍；
         // 只清「无限时长且等级对得上」的那一层，玩家自己喝的同类型药水不动
         Set<PotionEffectType> types = new java.util.LinkedHashSet<>();
         if (previous != null) {
@@ -172,7 +172,7 @@ public final class BuffService {
             return;
         }
         if (!worldAllowed(player)) {
-            // 走进禁用世界后，本插件之前挂上的那一层要摘掉，不然会跟着玩家一直生效
+            // 走进禁用世界后，插件之前挂上的那一层要摘掉，不然会跟着玩家一直生效
             clear(player, title);
             return;
         }
