@@ -1,6 +1,6 @@
 Add-Type -AssemblyName System.Drawing
 
-$OutDir = 'G:\插件\Title\src\main\resources\images'
+$OutDir = 'E:\繁花梦\03-插件\Title\src\main\resources\images'
 if (-not (Test-Path $OutDir)) { New-Item -ItemType Directory -Path $OutDir -Force | Out-Null }
 
 $w = 80; $h = 24; $r = 8
